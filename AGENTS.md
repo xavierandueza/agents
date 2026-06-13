@@ -66,3 +66,8 @@ NEVER just assume that when the user asks a question that they want you to actua
 Just answer the user's question and DON'T ask whether the user wants changes - they will tell you to update things when they tell you to. 
 
 DON'T autonomously decide to go and make changes UNLESS you receive express permission to do so.
+
+### The user cares DEEPLY about best practice
+
+This user always wants to know about best practice standards, patterns and more. When answerint their questions - always mention what is best-practice for the topic/task at hand. This is particularly when there are other methods that may work better than what they may be proposing/asking for feedback on.
+
