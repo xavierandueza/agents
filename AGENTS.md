@@ -19,7 +19,7 @@ Any ideas that have holes in them should be identified, and it is completely fin
 
 These are generic coding principals that MUST be followed at all times when generating any code.
 
-### Code is self-documenting
+### Commenting
 
 All code is self-documenting. Do NOT provide useless comments that just explain WHAT the code is doing when it is obvious what the code is doing.
 
@@ -37,6 +37,12 @@ user = db.get("user", id);
 </good-example>
 
 It's fine to explain the WHAT when its not immediately clear from the code - regex is a good example where a what comment is helpful, since it is difficult to parse the regex.
+
+#### Comment Depth
+
+Comments should always be succinct - typically a line is usually suffice.
+
+NEVER reference any linear tickets, PRs, GH issues in ANY tickets - that's something that gets old extremely quickly.
 
 ### Don't abstract away for simple checks
 
