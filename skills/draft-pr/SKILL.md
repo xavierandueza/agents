@@ -1,6 +1,6 @@
 ---
 name: draft-pr
-disable-model-invocation: true
+disable-model-invocation: false
 description: Prepare and open a draft PR. Pass the ticket ID as the argument (e.g. /draft-pr RM-123).
 ---
 

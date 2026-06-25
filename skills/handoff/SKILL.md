@@ -2,7 +2,7 @@
 name: handoff
 description: Compact the current conversation into a handoff document for another agent to pick up.
 argument-hint: "What will the next session be used for?"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 Write a handoff document summarising the current conversation so a fresh agent can continue the work. If currently on a branch that has a ticket id, save to `.agents/<ticket-id>/` directory - otherwise save to `.agents/<new-folder-name>` directory, where the folder name is based on the details of the interaction. Keep that folder name brief, and the resulting .md document name brief too. Follow naming conventions of other issues/folders.
