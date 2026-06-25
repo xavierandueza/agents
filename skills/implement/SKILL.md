@@ -10,4 +10,6 @@ Use /tdd where possible, at pre-agreed seams.
 
 Run typechecking regularly, single test files regularly, and the full test suite once at the end.
 
-Commit your work to the current branch.
+Commit your work in atomic commits to the current branch.
+
+After you have finished implementation, create a draft pr with the `/draft-pr` skill.
