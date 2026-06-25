@@ -2,6 +2,37 @@
 
 This contains generic instructions for agents to follow when working.
 
+## pix — spawning sub-agents
+
+`pix` is a shell utility that spawns a named pi sub-agent in a new tmux window.
+
+**Invocation:**
+```
+pix <window-name> "<message>"
+```
+
+**When to use it:**
+- Delegating a parallel workstream to a specialised sub-agent (e.g. reviewer, planner, implementer)
+- Kicking off a long-running task without blocking your current window
+- Composing multi-agent workflows where each agent has a distinct role
+
+**Behaviour:**
+- Creates a new tmux window named `<window-name>` in the current session
+- Starts `pi` in that window with the current directory as the working directory
+- Seeds the message (or `/skill:<skill-name>` slash command) into the pi TUI automatically
+- Runs fully in the background — your current window is unaffected
+- If `<window-name>` is already taken, auto-suffixes (`-2`, `-3`, ...)
+
+**Window naming convention:** use role-descriptive names.
+```
+pix implementer "/skill:implement the auth middleware as per the plan at .agents/rm-100/plan.md"
+pix reviewer "/skill:thermo-nuclear-code-quality-review review the changes made in PR-100"
+```
+
+**Notes:**
+- No flag passthrough — `pi` is always invoked with defaults
+- Skill invocations (e.g. `/tdd`, `/grill-me`) work natively via tmux send-keys into the TUI - but note that you MUST start the message with `/skill:<skill-name>` for this to work, following text instructions can go after.
+
 ## Response format
 
 This user prefers to have responses that are:
