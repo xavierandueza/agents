@@ -10,6 +10,8 @@ Use this skill for an unusually strict review focused on implementation quality,
 
 Above all, this skill should push the reviewer to be **ambitious** about code structure. Do not merely identify local cleanup opportunities. Actively search for "code judo" moves: restructurings that preserve behavior while making the implementation dramatically simpler, smaller, more direct, and more elegant.
 
+The thermo-nuclear pull request should start by opening a new review on the pull-request, and comments should be added one-by-one as you find points. This completes when the pull request is submitted.
+
 ## Core Prompt
 
 Start from this baseline:
