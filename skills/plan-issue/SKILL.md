@@ -11,6 +11,7 @@ Currently scoped to work with linear, however same approach applies across all t
 ## Hard requirements
 
 - **Linear MCP must be connected.** If it isn't, stop immediately with: "Linear MCP is not connected — check your MCP config."
+  - NOTE that in the pi agent this is maybe hidden behing the mcp server that lets you search for mcp tools - search for linear toola and see what you find. You probably do have it.
 
 ## Steps
 
