@@ -107,9 +107,15 @@ Only comment on OOS changes that would otherwise look like noise to a reviewer. 
 
 **Completion criterion:** every meaningful OOS change has a comment and that review is submitted, or there are none.
 
+### 8. Start a `loops` session on the draft PR
+
+The custom `loops` cli watches PRs for comments, and will spin out an agent to analyze, fix, and respond to comments.
+
+Run the `loops` pr watch command on the draft PR that you've just uploaded.
+
 ### 8. Handoff
 
-Trigger `/handoff` to a new agent for the thermo-nuclear code quality review, passing:
+Trigger `/handoff` - write the handoff doc and trigger the next agent with the `/thermo-nuclear-code-quality-review` skill passing:
 
 - `ticketId`: the ticket ID from step 1
 - `prUrl`: the GitHub PR URL from step 6
