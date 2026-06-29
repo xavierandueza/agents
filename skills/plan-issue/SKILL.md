@@ -19,7 +19,8 @@ Currently scoped to work with linear, however same approach applies across all t
 
 - Fetch the ticket. Read the full body and any comments.
 - Explore the codebase(s) to understand the area the ticket touches.
-- Create and checkout a git branch using the branch name Linear provides for the ticket.
+- If you're not already on the right branch (check first you often will be) create and checkout a git branch using the branch name Linear provides for the ticket.
+  - Note - linear likes to use <name>/xx-11111-name-of-ticket style but I like git flow style branch names with fix/feature/chore/docs instead so go for those instead of using names.
 
 **Done when:** you have the ticket content, a working understanding of the relevant codebase area, and are on the correct branch.
 
