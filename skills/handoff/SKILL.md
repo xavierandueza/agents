@@ -12,3 +12,5 @@ Include a "suggested skills" section in the document, which suggests skills that
 Do not duplicate content already captured in other artifacts (PRDs, plans, ADRs, issues, commits, diffs). Reference them by path, id, or URL instead.
 
 If arguments were passed, treat them as a description of what the next session will focus on and tailor the doc accordingly.
+
+Finish by creating the agent. Invoke directly with any skills that you may need, and pass in the link to the file you've just created.
