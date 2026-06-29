@@ -111,7 +111,7 @@ Only comment on OOS changes that would otherwise look like noise to a reviewer. 
 
 The custom `loops` cli watches PRs for comments, and will spin out an agent to analyze, fix, and respond to comments.
 
-Run the `loops` pr watch command on the draft PR that you've just uploaded.
+Run the `loops` pr watch command on the draft PR that you've just uploaded - This MUST be in a new tmux window however, as this is a process that runs for an infinite duration (until manually killed).
 
 ### 8. Handoff
 
