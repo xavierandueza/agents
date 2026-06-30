@@ -37,10 +37,10 @@ Run `/grill-me` to drive a back-and-forth with the user. The grilling must cover
 
 ### 3. Write the spec
 
-Write the spec to `.agents/<ticket-id>/spec.md` on the current branch, using [`SPEC_TEMPLATE.md`](SPEC_TEMPLATE.md) as the template.
+Write the spec to `.agents/<ticket-id>/spec.md` (gitignored), using [`SPEC_TEMPLATE.md`](SPEC_TEMPLATE.md) as the template.
 If you don't have a ticket id, then make an appropriate but brief name for the work.
 
-**Done when:** every decision from the grilling is captured, success criteria are checkable pass/fail, and the file is committed to the branch.
+**Done when:** every decision from the grilling is captured, success criteria are checkable pass/fail, and the md file is stored under the .agents/ folder.
 
 ### 4. Post draft to Linear
 
