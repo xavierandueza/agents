@@ -26,7 +26,7 @@ Currently scoped to work with linear, however same approach applies across all t
 
 ### 2. Grill
 
-Run `/grill-me` to drive a back-and-forth with the user. The grilling must cover:
+Run `/grill-with-docs` to drive a back-and-forth with the user. The grilling must cover:
 
 - What does success look like? (observable outcomes — not implementation steps)
 - What is explicitly out of scope?
