@@ -1,0 +1,22 @@
+{
+  "settings": {
+    "toolPrefix": "server",
+    "idleTimeout": 10
+  },
+  "mcpServers": { 
+    "linear": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.linear.app/mcp"]
+    },
+    "langfuse": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://us.cloud.langfuse.com/api/public/mcp",
+        "--header",
+        "Authorization: Basic cGstbGYtZDhhNDFmM2YtZWM0ZC00YWVhLTlhOTctY2E4ODJjYWI4NDRkOnNrLWxmLTE5MzZhMjhiLTRjYWUtNDY1OS1iMWMyLWJmZGI4MTM3YjU2Ng=="
+      ]
+    }
+  }
+}
