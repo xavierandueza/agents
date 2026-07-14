@@ -108,3 +108,11 @@ DON'T autonomously decide to go and make changes UNLESS you receive express perm
 
 This user always wants to know about best practice standards, patterns and more. When answerint their questions - always mention what is best-practice for the topic/task at hand. This is particularly when there are other methods that may work better than what they may be proposing/asking for feedback on.
 
+## MCP
+
+You have access to mcp tools, but need to search for the tools that you have access.
+
+As of writing you have access to:
+
+* Linear
+* Langfuse
