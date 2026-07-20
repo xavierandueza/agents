@@ -40,6 +40,16 @@ Run `/grill-with-docs` to drive a back-and-forth with the user. The grilling mus
 Write the spec to `.agents/<ticket-id>/spec.md` (gitignored), using [`SPEC_TEMPLATE.md`](SPEC_TEMPLATE.md) as the template.
 If you don't have a ticket id, then make an appropriate but brief name for the work.
 
+This spec should contain enough information such that a colleague who hasn't worked on this section of the codebase can easily pick up this work, and implement it.
+It's a good idea to include the relevant files, since for large repos finding these can sometimes be difficult.
+
+Usually mention where its relevant in the plan. Example:
+
+**Relevant Files**
+
+- `path/to/file.ts`
+- `...`
+
 **Done when:** every decision from the grilling is captured, success criteria are checkable pass/fail, and the md file is stored under the .agents/ folder.
 
 ### 4. Post draft to Linear
