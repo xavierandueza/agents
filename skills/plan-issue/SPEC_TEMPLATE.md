@@ -14,7 +14,16 @@ What this ticket deliberately does not address.
 
 ## Implementation decisions
 
+### Decision 1
+
 Decisions made during the grilling: modules touched, interfaces changed, schema changes, API contracts, architectural choices. No file paths or code snippets unless a snippet encodes a decision more precisely than prose can.
+
+**Relevant Files**
+
+- `packages/api-contracts/src/constants/import.ts`
+- `packages/backend/models/project/types.ts`
+- `packages/dash/controllers/import.ts`
+- `packages/dash/controllers/lib/import.ts`
 
 ## Proposed test seams
 
