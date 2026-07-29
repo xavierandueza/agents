@@ -109,11 +109,21 @@ Only comment on OOS changes that would otherwise look like noise to a reviewer. 
 
 ### 8. Start a `loops` session on the draft PR
 
-The custom `loops` cli watches PRs for comments, and will spin out an agent to analyze, fix, and respond to comments.
+The custom `loops` CLI watches PRs for comments and spins out an agent to analyze, fix, and respond to them.
 
-Run the `loops` pr watch command on the draft PR that you've just uploaded - This MUST be in a new tmux window however, as this is a process that runs for an infinite duration (until manually killed).
+Run the bundled script, resolving its path relative to this `SKILL.md`:
 
-### 8. Handoff
+```sh
+scripts/start-pr-loop.sh <ticket-id> <pr-url>
+```
+
+The script creates a dedicated **Herdr tab** (the Herdr equivalent of a window) in the current workspace, roots it at the repository, and starts `loops pr-watch` without stealing focus. The process runs until manually stopped.
+
+If the script fails, report its error. Do not run the watcher in the current pane, append `&`, use tmux, or otherwise bypass the script.
+
+**Completion criterion:** the watcher is running in a dedicated, labelled Herdr tab for this ticket, and the current agent pane remains available.
+
+### 9. Handoff
 
 Trigger `/handoff` - write the handoff doc and trigger the next agent with the `/thermo-nuclear-code-quality-review` skill passing:
 
