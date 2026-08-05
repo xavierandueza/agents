@@ -86,28 +86,7 @@ Capture the PR URL from the output.
 
 **Completion criterion:** PR is open in draft state, URL captured.
 
-### 7. Self-review
-
-Scan the diff for anything out-of-scope of the ticket — opportunistic refactors, incidental fixes, structural changes. For each one a reviewer would benefit from knowing about, post a line-level comment via the gh cli in an open review, explaining _why_ it's there (not what it does):
-
-```sh
-gh pr view <url> --json headRepository,number \
-  --jq '[.headRepository.owner.login, .headRepository.name, .number]'
-
-gh api repos/<owner>/<repo>/pulls/<number>/comments \
-  --method POST \
-  --field body="<explanation>" \
-  --field commit_id="$(git rev-parse HEAD)" \
-  --field path="<file>" \
-  --field line=<line-number> \
-  --field side="RIGHT"
-```
-
-Only comment on OOS changes that would otherwise look like noise to a reviewer. Don't over-comment.
-
-**Completion criterion:** every meaningful OOS change has a comment and that review is submitted, or there are none.
-
-### 8. Start a `loops` session on the draft PR
+### 7. Start a `loops` session on the draft PR
 
 The custom `loops` CLI watches PRs for comments and spins out an agent to analyze, fix, and respond to them.
 
@@ -123,9 +102,11 @@ If the script fails, report its error. Do not run the watcher in the current pan
 
 **Completion criterion:** the watcher is running in a dedicated, labelled Herdr tab for this ticket, and the current agent pane remains available.
 
-### 9. Handoff
+### 8. Trigger Review Agents
 
-Trigger `/handoff` - write the handoff doc and trigger the next agent with the `/thermo-nuclear-code-quality-review` skill passing:
+There are 2x ways that you should do this, depending on the repository that you are in.
 
-- `ticketId`: the ticket ID from step 1
-- `prUrl`: the GitHub PR URL from step 6
+1. For the `ai` and `readme` repositories: Trigger by adding the `anand-review` label to the pull request.
+2. For any other repository trigger another agent with the `/thermo-nuclear-code-quality-review` skill passing:
+  - `ticketId`: the ticket ID from step 1
+  - `prUrl`: the GitHub PR URL from step 6
