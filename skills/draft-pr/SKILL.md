@@ -64,7 +64,7 @@ Populate the template from step 3:
 
 - **Resolves**: the ticket ID
 - **Changes**: high-level _what_, never _how_. Dot points only. Never describe files or code internals — reviewers can read the diff. For fixes, include a concise BEFORE / AFTER.
-- **QA & Testing**: how you verified it's complete
+- **QA & Testing**: how you verified it's complete - NOTE that added tests are obvious and don't need to be included, don't add that information. Otherwise, instruct the user on what they need to test to ensure that its working as intended, including edge cases.
 
 Leave the recording/images line as-is — the human fills that in.
 
