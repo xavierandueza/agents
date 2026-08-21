@@ -21,6 +21,11 @@ for command_name in git herdr jq loops; do
   fi
 done
 
+if [[ -z ${HERDR_WORKSPACE_ID:-} ]]; then
+  printf 'HERDR_WORKSPACE_ID is required; run this command inside a Herdr workspace.\n' >&2
+  exit 1
+fi
+
 repo_root=$(git rev-parse --show-toplevel)
 tab_label="loops-$ticket_id"
 tab_id=''
@@ -35,6 +40,7 @@ cleanup_failed_tab() {
 trap cleanup_failed_tab EXIT
 
 tab_response=$(herdr tab create \
+  --workspace "$HERDR_WORKSPACE_ID" \
   --cwd "$repo_root" \
   --label "$tab_label" \
   --no-focus)
