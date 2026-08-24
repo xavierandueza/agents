@@ -1,17 +1,16 @@
 ---
 name: plan-issue
-description: "Plan an issue/ticket end-to-end: fetch the issue, explore the codebase, grill the user to produce a self-contained spec."
+description: "Plan an issue end-to-end and produce an approved spec and testing plan."
 disable-model-invocation: true
 ---
 
-Takes an issue/ticket URL as an argument and produces an approved spec on disk, ready for a fresh `/implement` session.
+Takes an issue/ticket URL as an argument and produces an approved spec and testing plan on disk, ready for a fresh `/implement` session.
 
-Currently scoped to work with linear, however same approach applies across all task managemeng platforms.
+Currently scoped to Linear, although the same approach applies across task-management platforms.
 
 ## Hard requirements
 
-- **Linear MCP must be connected.** If it isn't, stop immediately with: "Linear MCP is not connected — check your MCP config."
-  - NOTE that in the pi agent this is maybe hidden behing the mcp server that lets you search for mcp tools - search for linear toola and see what you find. You probably do have it.
+- **Linear MCP must be connected.** Search the MCP gateway for Linear tools before concluding it is unavailable. If it is not connected, stop with: "Linear MCP is not connected — check your MCP config."
 
 ## Steps
 
@@ -31,46 +30,49 @@ Run `/grill-with-docs` to drive a back-and-forth with the user. The grilling mus
 - What does success look like? (observable outcomes — not implementation steps)
 - What is explicitly out of scope?
 - Any constraints, risks, or unknowns that surfaced during codebase exploration
-- Proposed test seams — present these as suggestions derived from the success criteria, not mandates
+- The most appropriate verification layer for every success criterion: unit, integration, contract, browser acceptance, or another project-specific layer
+- Whether browser acceptance testing adds meaningful confidence
 
-**Done when:** every open question is resolved and you could hand the outcome to a proficient, but new engineer who knows nothing about this conversation.
+Use judgement rather than requiring browser tests because the project has a web interface. Browser testing is usually warranted when success depends on rendering, interaction, client-side state, navigation, browser APIs, authentication flows, or integration across system boundaries. It is usually unnecessary when lower-level tests fully verify an internal, backend-only, documentation, configuration, or non-UI change.
 
-### 3. Write the spec
+**Done when:** every open question is resolved, every success criterion has a proposed verification method, and the browser-testing decision has a clear rationale.
 
-Write the spec to `.agents/<ticket-id>/spec.md` (gitignored), using [`SPEC_TEMPLATE.md`](SPEC_TEMPLATE.md) as the template.
-If you don't have a ticket id, then make an appropriate but brief name for the work.
+### 3. Write the spec and testing plan
 
-This spec should contain enough information such that a colleague who hasn't worked on this section of the codebase can easily pick up this work, and implement it.
-It's a good idea to include the relevant files, since for large repos finding these can sometimes be difficult.
+Write these gitignored artifacts under `.agents/<ticket-id>/`:
 
-Usually mention where its relevant in the plan. Example:
+- `spec.md`, using [`SPEC_TEMPLATE.md`](SPEC_TEMPLATE.md)
+- `testing-plan.md`, using [`TESTING_PLAN_TEMPLATE.md`](TESTING_PLAN_TEMPLATE.md)
 
-**Relevant Files**
+If there is no ticket ID, use an appropriate brief folder name.
 
-- `path/to/file.ts`
-- `...`
+The spec must let an engineer unfamiliar with this area implement the work. Include relevant files when they would otherwise be difficult to discover.
 
-**Done when:** every decision from the grilling is captured, success criteria are checkable pass/fail, and the md file is stored under the .agents/ folder.
+The testing plan must map every success criterion and identified risk to an appropriate verification method. Include applicable code-based tests regardless of the browser-testing decision, and document when none apply. Record an explicit `Yes` or `No` browser-testing decision and its rationale. When browser testing is required, define cases that the user can later execute with `/test-via-browser`; when it is not required, do not manufacture browser cases.
+
+Keep credentials out of the plan. Reference test-account roles and environment-variable names, never secret values.
+
+**Done when:** every planning decision is captured, success criteria are checkable pass/fail, every criterion has test coverage or a documented exclusion, and both files are stored under `.agents/<ticket-id>/`.
 
 ### 4. Post draft to Linear
 
-Post the full spec content as a comment on the Linear ticket, prefixed with `> **[DRAFT — pending approval]**`.
+Post the full spec and testing plan as a comment on the Linear ticket, prefixed with `> **[DRAFT — pending approval]**`.
 
-**Done when:** the comment is visible on the ticket.
+**Done when:** both artifacts are visible on the ticket.
 
 ### 5. Compact your conversation
 
-After posting the spec, the user will take somet time to review. Run the `/compact` command explicitly stating that the user may want to come back and ask more questions, make modifications to the plan.
+After posting the spec and testing plan, the user will take some time to review. Run the `/compact` command explicitly stating that the user may return with questions or modifications to either artifact.
 
 ### 6. Get approval
 
-Show the user the spec and ask for explicit approval. Do not proceed to implementation.
+Show the user the spec and testing plan and ask for explicit approval. Do not proceed to implementation.
 
 Once the user approves:
 - Update the Linear comment prefix to `> **[APPROVED]**`
 - Record the approval in the spec file under a `## Approval` heading with the timestamp
 
-Start a fresh agent session yourself with instructions to implement, invoking the `implement` skill directly if possible, or giving clear instructions to invoke the skill to implement.
+Start a fresh agent session with instructions to implement from both artifacts, invoking the `implement` skill directly if possible or giving clear instructions to invoke it. If the approved testing plan requires browser acceptance testing, tell the user to run `/test-via-browser` after implementation; do not invoke that user-invoked skill on their behalf.
 
-**Done when:** the Linear comment is marked approved and the spec file reflects it.
+**Done when:** the Linear comment is marked approved, the spec records approval, and the implementation handoff references both artifacts.
 
