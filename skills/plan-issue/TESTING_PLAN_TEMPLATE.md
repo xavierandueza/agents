@@ -32,6 +32,15 @@ If browser testing is not required, write `Not required` and remove the table. O
 |---|---|---|---|---|---|
 | B-01 | <criterion or risk> | <starting state> | <user-visible actions> | <pass/fail outcome> | <snapshot, screenshot, console, network, URL, or storage evidence> |
 
+## Browser workers and execution groups
+
+Assign each worker a role and one-based ordinal. `/test-via-browser` combines these with the ticket and executing Pi session ID to derive unique browser sessions, `@e2e.test` identities, reports, and evidence paths. Identify cases that may run concurrently and cases that must be serialized because they share fixtures or mutable server-side state.
+
+| Worker | Role | Ordinal | Cases | Execution | Isolation requirements |
+|---|---|---:|---|---|---|
+| admin1 | admin | 1 | <B-01, B-02> | <parallel-safe or serial> | <distinct fixture or other constraint> |
+| user1 | user | 1 | <B-03> | <parallel-safe or serial> | <distinct fixture or other constraint> |
+
 ## Excluded coverage and residual risks
 
 Document intentionally excluded scenarios, why they are excluded, and any remaining risk.
