@@ -15,31 +15,75 @@ Use the `playwright-cli` skill for browser interactions.
 Store artifacts under `.agents/<ticket-id>/`:
 
 - `testing-plan.md` contains test cases and expected outcomes.
-- `testing-report.md` contains timestamped execution results.
-- `evidence/` contains screenshots, snapshots, traces, or other saved browser evidence.
+- `testing-reports/<session>.md` contains one agent's execution results.
+- `testing-report.md` consolidates completed session reports when a coordinator is used.
+- `evidence/<session>/` contains that agent's screenshots, snapshots, traces, and other browser evidence.
 
-Keep the plan separate from execution history. Do not overwrite previous report runs.
+Keep the plan separate from execution history. Each agent writes only to its own session report and evidence directory; do not overwrite previous runs or concurrently edit the consolidated report.
+
+## Browser session isolation
+
+Every agent must create and exclusively use a unique named browser session. Never use the unnamed default session, reuse another agent's session name, or route a command without `-s="$SESSION"`.
+
+Assign each worker a role and one-based ordinal from the testing plan. Resolve [`scripts/browser-worker.sh`](scripts/browser-worker.sh) relative to this `SKILL.md`, but keep the working directory at the project root. Run it to derive the worker's session, test email, password-variable name, report, and evidence directory:
+
+```bash
+WORKER_HELPER="<skill-directory>/scripts/browser-worker.sh"
+eval "$("$WORKER_HELPER" RM-17884 admin 1)"
+mkdir -p "$WORKER_EVIDENCE_DIR" "$(dirname "$WORKER_REPORT")"
+
+playwright-cli -s="$WORKER_SESSION" open --browser=firefox
+playwright-cli -s="$WORKER_SESSION" screenshot \
+  --filename="$WORKER_EVIDENCE_DIR/homepage.png"
+```
+
+The helper produces identities such as `rm-17884-admin1-<pi-session-id>` and `rm-17884-admin1-<pi-session-id>@e2e.test`. The ticket separates work across tickets, the role and ordinal separate workers within one agent, and `PI_SESSION_ID` separates concurrent agents. Running the same inputs in the same Pi session is intentionally idempotent.
+
+Route every subsequent browser command to `WORKER_SESSION` and finish with:
+
+```bash
+playwright-cli -s="$WORKER_SESSION" close
+```
+
+Never delete session data owned by another agent.
+
+A named browser session isolates browser state, not application data. Consider this when you are using the local setup provided to you w.r.t. the details of accounts you have access to.
+
+## The Project
+
+You are working on ReadMe's full-stack web application.
+
+It has:
+- The "dash": `http://dash.readme.local:3000/` -> This is the dashboard where users can see all of the projects they have access to.
+- The "hub": links here end with .readme.local:3000 but start with the given subdomain. With -> `http://<subdomin>.readme.local:3000/`
+- Enterprise projects: These have a parent project, where to access the homepage of the parent project you visit same as above: who has the root the same as the hub - so "my-enterprise" subdomain gets: `http://<parent-subdomin>.readme.local:3000/` -> BUT this points to a basic page that just shows the child projects that are available.
+  - Enterprise children are found under a sub-page of the parent's domain. For a child project we get `http://<parent-subdomain>.readme.local:3000/<child-subdomain>/`
+  - The majority of settings for an enterprise parent are located at the "Enterprise Dashboard" which canbe found, for the above project, at: http://readme.local:3000/group/<parent-subdomain>/settings
+  - Child project settings can be found at the normal location too - but some of these will just show that it's disabled and you should navigate to the parent page.
 
 ## Login details
 
-Read test-account environment variables from the gitignored `.env.e2e.local`. If the current repository does not own the frontend, locate that file in the associated frontend or monorepo. Never copy secret values into plans, reports, evidence, or committed files.
+Read test-account environment variables from the gitignored `.env.e2e.local`. These will typically have:
+
+- Admins -> these have full ownership over given projects
+- Editors -> These just have edit access over projects, no admin powers
+
+Often times you will need to test from the perspective of a signed out user - just navigate to any published local docs site for this with a non-signed in session to do so.
 
 ## 1. Establish the test target
 
 Derive the ticket ID from the active branch, then inspect its ticket, acceptance criteria, `.agents/<ticket-id>/` artifacts, changed code, and project documentation. If the ticket cannot be resolved after inspecting those sources, ask the user for it.
 
-Discover how to start or connect to the application. Determine required authentication, fixtures, seed data, feature flags, browser, and viewport from the project rather than assuming defaults.
-
 Record the following in the report run:
 
 - ticket ID
 - Git SHA and whether the worktree is dirty
-- base URL
-- browser and viewport
+- worker username (its an email)
+- per-session evidence paths
 - relevant configuration and feature flags
 - test account and test-data assumptions, without recording secrets
 
-This step is complete when the acceptance criteria are known, the application is reachable, and the tested revision and environment are recorded. Otherwise, record the run as blocked with the missing prerequisite.
+This step is complete when the acceptance criteria are known, the application is reachable, and the tested revision, environment, unique session, and per-session artifact paths are recorded. Otherwise, record the run as blocked with the missing prerequisite.
 
 ## 2. Build or validate the browser test plan
 
@@ -99,6 +143,8 @@ This step is complete when every failure is actionable, fixed and retested, or e
 
 ## 5. Finalise the report
 
+Write the summary to this agent's `testing-reports/<session>.md`. Only a coordinating agent may consolidate completed session reports into `testing-report.md`, after workers have stopped writing.
+
 Summarise:
 
 - acceptance criteria and test coverage
@@ -107,6 +153,6 @@ Summarise:
 - untested areas and residual risks
 - final tested Git SHA and dirty-worktree state
 
-Close browser sessions even when the run fails or is blocked.
+Close only this agent's named browser session, even when the run fails or is blocked.
 
 The run is complete only when every planned browser case is accounted for, every failure has reproducible evidence, all authorised fixes have relevant regression results, and the report states exactly what was and was not validated.
