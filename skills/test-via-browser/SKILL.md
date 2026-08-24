@@ -20,9 +20,9 @@ Store artifacts under `.agents/<ticket-id>/`:
 
 Keep the plan separate from execution history. Do not overwrite previous report runs.
 
-## Login Details
+## Login details
 
-You will find signin details for features via the `.env.e2e.local` environment variables. Note that if you're not in a monorepo/frontend repo then you'll need to find the details from the monorepo/frontend repository.
+Read test-account environment variables from the gitignored `.env.e2e.local`. If the current repository does not own the frontend, locate that file in the associated frontend or monorepo. Never copy secret values into plans, reports, evidence, or committed files.
 
 ## 1. Establish the test target
 
@@ -41,22 +41,25 @@ Record the following in the report run:
 
 This step is complete when the acceptance criteria are known, the application is reachable, and the tested revision and environment are recorded. Otherwise, record the run as blocked with the missing prerequisite.
 
-## 2. Build or validate the test plan
+## 2. Build or validate the browser test plan
 
-If `testing-plan.md` exists, reconcile it with the current acceptance criteria, changed code, and identified risks. Do not assume an existing plan is current.
+If `testing-plan.md` exists, read its browser-testing decision and reconcile the browser cases with the current acceptance criteria, changed code, and identified risks. Do not assume an existing plan is current, and do not execute its code-based test cases through the browser.
 
-Otherwise, create it. Give every case an ID and include:
+If the plan says browser testing is not required and its rationale remains valid, record that browser testing is not applicable and stop after finalising the report. If implementation changes invalidate the decision, update it and explain why.
+
+When browser testing is required but browser cases are missing, add them. Give every browser case an ID and include:
 
 - acceptance criterion or risk covered
 - preconditions and test data
 - actions
 - expected observable result
+- evidence to capture
 
-Cover each acceptance criterion and relevant happy paths, negative paths, boundaries, state transitions, permissions, and regressions. Scope responsive and cross-browser coverage to the project's supported targets.
+Cover relevant happy paths, negative paths, boundaries, state transitions, permissions, and regressions without duplicating behaviour fully established by lower-level tests. Scope responsive and cross-browser coverage to the project's supported targets.
 
-This step is complete when every acceptance criterion and identified risk maps to at least one test case, with any intentionally excluded coverage documented.
+This step is complete when every acceptance criterion or risk assigned to browser validation maps to at least one browser case, with intentionally excluded browser coverage documented.
 
-## 3. Execute every test case
+## 3. Execute every browser test case
 
 Verify `playwright-cli` and the required browser are available, then execute the cases one at a time. Isolate or reset test state where practical.
 
@@ -76,7 +79,7 @@ Match evidence to the assertion:
 
 Inspect console errors and failed network requests when relevant. Capture evidence for important passes as well as failures.
 
-This step is complete when every planned case has a terminal status and evidence sufficient for another agent to verify the conclusion.
+This step is complete when every planned browser case has a terminal status and evidence sufficient for another agent to verify the conclusion.
 
 ## 4. Diagnose failures
 
@@ -106,4 +109,4 @@ Summarise:
 
 Close browser sessions even when the run fails or is blocked.
 
-The run is complete only when every planned case is accounted for, every failure has reproducible evidence, all authorised fixes have relevant regression results, and the report states exactly what was and was not validated.
+The run is complete only when every planned browser case is accounted for, every failure has reproducible evidence, all authorised fixes have relevant regression results, and the report states exactly what was and was not validated.
