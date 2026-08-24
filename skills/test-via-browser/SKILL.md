@@ -151,7 +151,6 @@ Summarise:
 - passed, failed, and blocked counts
 - fixes and retest outcomes, if authorised
 - untested areas and residual risks
-- final tested Git SHA and dirty-worktree state
 
 Close only this agent's named browser session, even when the run fails or is blocked.
 
