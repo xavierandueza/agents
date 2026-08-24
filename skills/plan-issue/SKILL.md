@@ -48,7 +48,7 @@ If there is no ticket ID, use an appropriate brief folder name.
 
 The spec must let an engineer unfamiliar with this area implement the work. Include relevant files when they would otherwise be difficult to discover.
 
-The testing plan must map every success criterion and identified risk to an appropriate verification method. Include applicable code-based tests regardless of the browser-testing decision, and document when none apply. Record an explicit `Yes` or `No` browser-testing decision and its rationale. When browser testing is required, define cases that the user can later execute with `/test-via-browser`; when it is not required, do not manufacture browser cases.
+The testing plan must map every success criterion and identified risk to an appropriate verification method. Include applicable code-based tests regardless of the browser-testing decision, and document when none apply. Record an explicit `Yes` or `No` browser-testing decision and its rationale. When browser testing is required, define cases that the user can later execute with `/test-via-browser`; when it is not required, do not manufacture browser cases. Assign each browser worker a role and one-based ordinal, identify cases that can run concurrently, and serialize cases that mutate shared application state.
 
 Keep credentials out of the plan. Reference test-account roles and environment-variable names, never secret values.
 
