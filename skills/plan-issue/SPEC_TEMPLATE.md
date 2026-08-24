@@ -25,9 +25,9 @@ Decisions made during the grilling: modules touched, interfaces changed, schema 
 - `packages/dash/controllers/import.ts`
 - `packages/dash/controllers/lib/import.ts`
 
-## Proposed test seams
+## Test strategy
 
-Where the implementation can be verified. These are suggestions — the implementing agent may adjust. Each seam should trace back to a success criterion.
+Verification cases and the browser-testing decision are defined in [`testing-plan.md`](testing-plan.md).
 
 ## Further notes
 
