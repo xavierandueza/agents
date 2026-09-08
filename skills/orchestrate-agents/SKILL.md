@@ -170,13 +170,7 @@ Use bounded retries only for classified transient failures. Reuse the same task 
 
 ## 8. Accept completion
 
-A child must write its assigned `result.md` and return:
-
-```text
-CHILD_COMPLETE
-Result: <absolute-result-path>
-Outcome: <one-line summary>
-```
+A child must write its assigned `result.md` that details the results.
 
 Read `result.md`, then inspect the actual artifact, diff, commit, or PR and verify the reported checks. A self-reported completion, result file alone, or settled Herdr state is insufficient.
 
