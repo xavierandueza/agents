@@ -98,7 +98,7 @@ scripts/start-pr-loop.sh <ticket-id> <pr-url>
 
 The script creates a dedicated **Herdr tab** (the Herdr equivalent of a window) in the current workspace, roots it at the repository, and starts `loops pr-watch` without stealing focus. The process runs until manually stopped.
 
-If the script fails, report its error. Do not run the watcher in the current pane, append `&`, use tmux, or otherwise bypass the script.
+If the script fails, report its error. Do not run the watcher in the current pane, append `&`, or otherwise bypass the script.
 
 **Completion criterion:** the watcher is running in a dedicated, labelled Herdr tab for this ticket, and the current agent pane remains available.
 
