@@ -10,6 +10,10 @@
 
 Describe required fixtures, seed data, feature flags, services, test-account roles, and environment assumptions. Reference credential environment-variable names only; never include secret values.
 
+## Evidence storage
+
+All evidence produced while executing this plan must be saved under `.agents/<ticket-id>/evidence/`, with `<ticket-id>` replaced by the ticket ID. For every test case that requires evidence, specify the artifact and its path within this folder. Do not leave required evidence only in terminal output, a browser session, or a temporary directory.
+
 ## Browser-testing decision
 
 - **Required:** <Yes | No>
@@ -61,7 +65,7 @@ If browser testing is not required, write `Not required` and remove the example 
 
 #### Evidence
 
-<Snapshot, screenshot, console, network, URL, or storage evidence to capture>
+<Snapshot, screenshot, console, network, URL, or storage evidence to capture, including its path under `.agents/<ticket-id>/evidence/`>
 
 ## Browser workers and execution groups
 
