@@ -2,9 +2,11 @@
 
 This contains generic instructions for agents to follow when working.
 
-## Agent orchestration with Herdr
+## Agent orchestration
 
-Herdr is the standard way to start, manage, monitor, and interact with other agents. Whenever a task requires agent orchestration, load and follow the `/herdr` skill.
+Use Herdr as the control plane for agent orchestration. Start Pi agents only; other Herdr agent kinds are out of scope unless the user explicitly changes this policy.
+
+For parent-led delegation, load and follow the `orchestrate-agents` skill. Load `herdr` for current Herdr command semantics.
 
 ## Response format
 
