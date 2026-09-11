@@ -7,7 +7,7 @@ argument-hint: "<absolute assignment.md path>"
 
 # Child agent
 
-Act as a bounded **worker**. The parent owns orchestration, product decisions, integration, and the final user response. Complete the assigned task and preserve its result; do not widen the task.
+Act as a bounded **worker**. The parent owns orchestration, product decisions, acceptance, and the final user response. You own the assigned deliverable, including implementation, integration, diagnosis, research, review, or verification. Complete that role contract and preserve its result.
 
 ## 1. Load the assignment
 
@@ -16,6 +16,7 @@ Read the absolute `assignment.md` path supplied in the invocation arguments. A r
 Confirm the assignment provides:
 
 - issue and child identifiers;
+- parent orchestrator and Herdr target;
 - absolute coordination, assignment, and result paths;
 - repository, worktree, branch, base, and starting revision;
 - role, objective, and intent;
@@ -27,7 +28,7 @@ Confirm the assignment provides:
 
 Inspect the actual repository and Git state. If required information is missing or the worktree does not match the assignment, report `PARENT_INPUT_REQUIRED` rather than guessing.
 
-Treat `assignment.md`, the issue-level `orchestration.md`, and `decisions.md` as parent-owned. Read them when directed; do not edit them.
+Treat `assignment.md` and the `orchestration.md` and `decisions.md` under the current coordination root as parent-owned. Read them when directed; leave them unchanged.
 
 **Completion criterion:** the task, authority, paths, starting state, and proof required for completion are unambiguous.
 
@@ -35,9 +36,11 @@ Treat `assignment.md`, the issue-level `orchestration.md`, and `decisions.md` as
 
 Load any task-specific skills named by the assignment, then work through the task to its deliverable contract.
 
+The assignment's role defines the execution mode. In verification or review mode, treat the named artifact or revision as immutable, use implementation reports only as context, collect direct evidence, and report findings. Repair belongs to a separate implementation assignment.
+
 - Change only the assigned worktree and allowed scope.
 - Preserve unrelated and pre-existing changes.
-- Use predecessor artifacts and issue decisions by their supplied paths and revisions.
+- Use predecessor artifacts and coordination-root decisions by their supplied paths and revisions.
 - Validate incrementally instead of postponing all checks until the end.
 - Keep code in the assigned branch or worktree; do not copy patches into `.agents/`.
 - Store requested reports, evidence, and non-code artifacts under the assigned child directory.
@@ -64,7 +67,7 @@ Recommendation:
 Work preserved at:
 ```
 
-For a blocking request, stop after preserving useful work in the assigned branch, commit, report, or artifact path. The parent reads this conversation through Herdr and records durable cross-child decisions in the issue-level `decisions.md` when needed.
+For a blocking request, stop after preserving useful work in the assigned branch, commit, report, or artifact path. The parent reads this conversation through Herdr and records durable cross-child decisions in the current coordination root's `decisions.md` when needed.
 
 When the parent resumes the task, read the supplied answer or decision path, confirm its effect on scope, and continue from preserved work. Do not restart completed work unless the decision invalidates it.
 

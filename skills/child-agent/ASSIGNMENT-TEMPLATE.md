@@ -4,13 +4,16 @@
 
 - Issue: `<issue-id>`
 - Child: `<child-id>`
+- Parent orchestrator: `<parent-agent-name-or-id>`
+- Parent Herdr target: `<parent-agent-name-or-pane-id>`
 
 ## Locations
 
-- Coordination root: `<absolute-parent-checkout>/.agents/<issue-id>`
-- Assignment: `<absolute-parent-checkout>/.agents/<issue-id>/children/<child-id>/assignment.md`
-- Result: `<absolute-parent-checkout>/.agents/<issue-id>/children/<child-id>/result.md`
-- Artifacts: `<absolute-parent-checkout>/.agents/<issue-id>/children/<child-id>/artifacts`
+- Coordination root: `<absolute-coordination-root>`
+- Decisions: `<absolute-coordination-root>/decisions.md`
+- Assignment: `<absolute-coordination-root>/children/<child-id>/assignment.md`
+- Result: `<absolute-coordination-root>/children/<child-id>/result.md`
+- Artifacts: `<absolute-coordination-root>/children/<child-id>/artifacts`
 - Repository: `<absolute-repository-path>`
 - Worktree: `<absolute-worktree-path>`
 - Branch: `<branch>`
@@ -19,7 +22,9 @@
 
 ## Role
 
-`<specialty and decision authority>`
+- Mode: `<implementation | integration | diagnosis | research | review | verification>`
+- Specialty and decision authority: `<bounded role>`
+- Subject artifact or revision: `<path, branch, commit, PR, or not applicable>`
 
 ## Objective
 
@@ -51,7 +56,7 @@
 
 ## Deliverable
 
-`<draft PR, integration-ready branch or commit, runnable prototype, research report, diagnosis, or test report>`
+`<draft PR, integration-ready branch or commit, runnable prototype, research report, diagnosis, or verification report>`
 
 `<paste the matching completion requirements from the parent's deliverable contracts>`
 

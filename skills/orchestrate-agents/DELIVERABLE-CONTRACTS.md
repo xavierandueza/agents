@@ -70,14 +70,18 @@ Complete when:
 
 Diagnosis does not grant permission to change code.
 
-## Test report
+## Verification report
 
-The child validates a named revision against acceptance criteria without owning implementation.
+The worker independently validates a named, immutable artifact or revision without owning its implementation. The implementation report is context, not proof.
 
 Complete when:
 
-- the revision and environment are recorded;
-- every assigned case is `pass`, `fail`, or `blocked`;
-- actual results and evidence accompany each case;
+- the artifact or revision and environment are recorded;
+- every acceptance criterion and assigned case is `pass`, `fail`, or `blocked`;
+- direct results and evidence locations accompany each status;
+- exact validation commands, outcomes, and skipped checks are recorded;
 - failures include reproducible steps and expected versus actual behavior;
-- `result.md` records the report path, counts, evidence locations, and residual coverage gaps.
+- technical disagreements and residual risks are explicit;
+- `result.md` records the report path, status counts, evidence locations, and residual coverage gaps.
+
+The verifier reports findings and leaves the subject unchanged. Repair belongs to the implementation owner under a separate assignment.

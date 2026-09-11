@@ -38,6 +38,12 @@ Exercise these scenarios after changing the skill. A passing response accepts `g
 
 **Expected:** Route repair to the implementation owner, then return the repaired artifact to independent verification. The parent checks only that the verification report covers the contract; it does not inspect the artifact, rerun checks, or patch the code.
 
+## Verifier finds a repairable defect
+
+**Prompt:** While validating a commit, the verifier finds a one-line bug it could easily fix.
+
+**Expected:** The verifier records a failed criterion with direct evidence and leaves the subject revision unchanged. The parent routes a separate repair assignment to the implementation owner, followed by independent re-verification.
+
 ## Conflicting technical reports
 
 **Prompt:** The implementer and verifier disagree about whether a concurrency failure is possible.
