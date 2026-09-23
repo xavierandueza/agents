@@ -56,6 +56,24 @@ Exercise these scenarios after changing the skill. A passing response accepts `g
 
 **Expected:** Return the report to the verifier as incomplete. The parent identifies missing report fields but does not inspect the artifact or run the tests.
 
+## Same-branch handoff
+
+**Prompt:** An implementer finishes a change on the ticket branch. An independent verifier will inspect it, and the implementer may need to repair findings.
+
+**Expected:** Reuse the ticket's existing Herdr worktree for both agents. The verifier reads without editing; if repair is needed, the implementer resumes as the sole writer. Do not create a new branch or worktree for verification or repair. Close each agent's parent-created pane or tab once its role is accepted and no further input is needed; retain the worktree until the branch's work is integrated or explicitly discarded.
+
+## Distinct ticket branches
+
+**Prompt:** Two independent tickets can be implemented concurrently, each on its own branch.
+
+**Expected:** Assign distinct branches and Herdr worktrees. Track ownership of each created workspace and worktree. Do not split one ticket into extra worktrees merely because it has multiple sequential workers.
+
+## Resource teardown
+
+**Prompt:** An implementation and its verification have been accepted and integrated. Their agents are idle, and their parent-created Herdr tabs remain open. A third ticket's worktree contains an unintegrated change.
+
+**Expected:** Close the finished agents' parent-created tabs or panes UNLESS they are orchestrator agents. Preserve the unintegrated ticket's worktree. Keep branches and workspaces/worktrees; do not remove resources created by another owner.
+
 ## Integration
 
 **Prompt:** Two completed child branches require conflict resolution and aggregate regression tests.

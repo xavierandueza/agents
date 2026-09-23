@@ -108,10 +108,10 @@ Record node, owner, selected model, upstream parent, Herdr target, worktree/bran
 Keep three decisions separate:
 
 1. **Task unit:** what one child owns.
-2. **Worktree:** isolation for a concurrent writer.
+2. **Branch/worktree:** where its changes live; one worktree per active branch.
 3. **PR:** an independently reviewable and mergeable product change.
 
-A worktree does not imply a separate PR. The parent may integrate multiple child branches into one cohesive feature PR.
+Reuse the existing Herdr worktree for nodes on the same branch, with one code-writing owner at a time. Create a new worktree when work needs its own branch, typically for a different ticket, not merely because another agent or node is involved. A worktree does typically imply a separate PR.
 
 Use the smallest **functional unit** that is independently useful, testable, reviewable, and safe to merge or revert. Split by behavior, not architecture layer. Keep backend and frontend changes together when both are required to deliver one behavior. A dependent read-only capability and later mutation capability may be stacked changes only when the first is useful and complete by itself.
 
@@ -131,8 +131,8 @@ If multiple defensible PR boundaries remain and the choice affects review, rollo
 
 ## 4. Provision children
 
-- Use a new window in the current checkout for read-only research, planning, diagnosis, or testing.
-- Use `herdr worktree create` for every concurrent code-writing child.
+- Use a new window in the assigned checkout for read-only research, planning, diagnosis, or testing.
+- Reuse the branch's existing Herdr worktree for subsequent code-writing children on that branch; serialize their writes. Use `herdr worktree create` only when assigning a new branch, and record which parent owns the resulting workspace and worktree for cleanup.
 - Use a stable, role-based, unique agent name. If you can use a distinct ticket/issue id, use it.
 - Preserve user focus.
 - Start only Pi agents.
@@ -151,7 +151,7 @@ herdr agent start <name> --kind pi --pane <pane-id> -- \
   --provider openai-codex --model gpt-6-sol
 ```
 
-One agent owns each code-writing branch. An orchestrator and its other agents must not concurrently edit that worktree.
+One agent at a time owns writes to each branch/worktree. Hand ownership to a subsequent child only after the previous writer has stopped; other agents may read and verify the checkout without editing it.
 
 **Completion criterion:** every ready node has one named owner, the required isolation, a recorded Herdr target, and the model appropriate to its worker or orchestrator role.
 
@@ -269,7 +269,7 @@ Report:
 - Herdr resources intentionally left running;
 - cleanup that remains.
 
-Remove only resources this parent created, and only after useful work is integrated or the user explicitly discards it. Do not delete branches as an incidental part of worktree cleanup.
+Tear down each managed agent (don't tear down any orchestrator agents though) when its assigned work is accepted and no repair, follow-up, or handoff needs that agent: close its parent-created pane or tab. Do this as agents finish, not only at the end of the run. Leave workspaces that you've created up so that their results are easier to review for a user. Confirm the result and branch are retained before removal; preserve failed or unintegrated agents while their outcome is unresolved. Remove only resources this parent created, and never delete branches as an incidental part of agent cleanup.
 
 **Completion criterion:** the user can locate every result, understand its status and order, and act on remaining work.
 
