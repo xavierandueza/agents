@@ -12,10 +12,10 @@ The orchestrator is coordination-only: decomposition, model and owner selection,
 
 ## Runtime policy
 
-- Orchestrator models: `gpt-6-astra` or `gpt-5.6-sol`
-- Delegated orchestrator model: `gpt-5.6-sol`
-- Worker models: `gpt-5.6-luna`, `gpt-5.6-terra`, or `gpt-5.6-sol`
-- Default worker model: `gpt-5.6-terra`
+- Orchestrator models: `gpt-6-astra` or `gpt-6-sol`
+- Delegated orchestrator model: `gpt-6-sol`
+- Worker models: `gpt-6-luna`, or `gpt-6-sol`
+- Default worker model: `gpt-6-luna`
 - Worker protocol: `/skill:child-agent`
 - Delegated orchestrator protocol: `/skill:orchestrate-agents`
 - Agent kind: Pi
@@ -24,9 +24,11 @@ The orchestrator is coordination-only: decomposition, model and owner selection,
 
 Select the least expensive model that safely fits the node, based on ambiguity, coupling, risk, and coordination burden rather than task size alone:
 
-- `gpt-5.6-luna`: narrow, low-risk, well-defined work with a self-contained context packet and deterministic acceptance criteria. Prefer it for small localized changes, focused research, mechanical updates, and targeted verification.
-- `gpt-5.6-terra`: the default workhorse for clearly scoped implementation, diagnosis, review, and testing that needs normal repository reasoning but limited cross-node coordination.
-- `gpt-5.6-sol`: difficult, high-risk, cross-cutting, or poorly defined work that requires discovery, architectural judgment, broad context, complex debugging, or coordination across interfaces and completed nodes.
+- `gpt-6-luna`: the default workhorse for clearly scoped implementation, diagnosis, review, and testing that needs normal repository reasoning but limited cross-node coordination. 
+  - Control the thinking level to the complexity of the task.
+    - `medium`: For narrow, low-risk, well-defined work with a self-contained context packet and deterministic acceptance criteria. Prefer it for small localized changes, focused research, mechanical updates, and targeted verification. Always use with 
+    - `max` for anything else
+- `gpt-6-sol`: difficult, high-risk, cross-cutting, or poorly defined work that requires discovery, architectural judgment, broad context, complex debugging, or coordination across interfaces and completed nodes.
 
 Split large separable work instead of selecting `sol` only because a task is large. Escalate from `luna` to `terra`, or from `terra` to `sol`, when the child discovers ambiguity, coupling, or risk beyond its assignment; preserve the existing artifacts and context packet for the replacement child.
 
@@ -34,7 +36,7 @@ Worker children must not create or manage agents. A delegated orchestrator may c
 
 ## Delegated orchestration
 
-Delegate a whole ticket or self-contained program to a `gpt-5.6-sol` orchestrator when it has sufficient complexity. Usually if its implementing a full ticket then that will have sufficient complexity. Sufficient complexity means that it contains multiple task nodes, benefits from its own implementation and verification fleet, and can be given a clear outcome boundary. Use a direct worker for a single bounded node.
+Delegate a whole ticket or self-contained program to a `gpt-6-sol` orchestrator when it has sufficient complexity. Usually if its implementing a full ticket then that will have sufficient complexity. Sufficient complexity means that it contains multiple task nodes, benefits from its own implementation and verification fleet, and can be given a clear outcome boundary. Use a direct worker for a single bounded node.
 
 The upstream parent retains the portfolio contract, cross-ticket dependencies, shared decisions, approval routing, and final reporting. The delegated orchestrator owns its assigned task graph, workers, verification, integration, and aggregate result. Every agent has exactly one accountable orchestrator, and escalations flow upward through that chain.
 
@@ -50,7 +52,7 @@ When this skill is invoked with an assignment path:
 ## 1. Preflight
 
 1. Confirm `HERDR_ENV=1`. If it is absent, stop and tell the user this workflow must run inside Herdr.
-2. Confirm `PI_MODEL` is `gpt-6-astra` or `gpt-5.6-sol`.
+2. Confirm `PI_MODEL` is `gpt-6-astra` or `gpt-6-sol`.
 3. Load the `herdr` skill.
 4. If invoked with an assignment path, read it and establish the upstream parent and delegated authority before continuing.
 5. Establish the repository, task identifier, base branch, current worktree state, requested outcome, and final deliverable.
@@ -139,14 +141,14 @@ Start workers with the model selected for their node:
 
 ```sh
 herdr agent start <name> --kind pi --pane <pane-id> -- \
-  --provider openai-codex --model <gpt-5.6-luna|gpt-5.6-terra|gpt-5.6-sol>
+  --provider openai-codex --model <gpt-6-luna|gpt-6-sol>
 ```
 
-Start delegated orchestrators with `gpt-5.6-sol`:
+Start delegated orchestrators with `gpt-6-sol`:
 
 ```sh
 herdr agent start <name> --kind pi --pane <pane-id> -- \
-  --provider openai-codex --model gpt-5.6-sol
+  --provider openai-codex --model gpt-6-sol
 ```
 
 One agent owns each code-writing branch. An orchestrator and its other agents must not concurrently edit that worktree.
