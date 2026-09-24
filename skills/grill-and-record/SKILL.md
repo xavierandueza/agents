@@ -1,4 +1,3 @@
-
 ---
 name: grill-and-record
 description: A grilling session to sharpen a plan or design that records findings into a markdown file
