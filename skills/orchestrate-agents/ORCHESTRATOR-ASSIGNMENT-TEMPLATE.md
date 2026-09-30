@@ -5,7 +5,7 @@
 - Portfolio: `<root-task-id>`
 - Delegated task: `<delegated-task-id>`
 - Orchestrator: `<orchestrator-id>`
-- Model: `gpt-6-sol`
+- Model: `gpt-6.1-sol`
 
 ## Hierarchy
 
@@ -54,7 +54,7 @@ You report to the upstream parent. Build and manage the worker fleet needed to c
 
 - Maximum concurrent workers: `<count>`
 - Maximum total workers: `<count>`
-- Allowed worker models: `<gpt-6-luna, gpt-6-sol>`
+- Allowed worker models: `<gpt-6-luna, gpt-6.1-sol>`
 - Worktree and branch constraints: `<constraints>`
 
 ## Acceptance criteria

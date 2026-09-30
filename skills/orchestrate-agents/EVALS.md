@@ -1,6 +1,6 @@
 # Orchestration evals
 
-Exercise these scenarios after changing the skill. A passing response accepts `gpt-6-astra` or `gpt-6-sol` as an orchestrator, keeps every orchestrator in the control-plane role, selects the least expensive safe worker model, and assigns independent verification.
+Exercise these scenarios after changing the skill. A passing response accepts `gpt-6-astra` or `gpt-6.1-sol` as an orchestrator, keeps every orchestrator in the control-plane role, selects the least expensive safe worker model, and assigns independent verification.
 
 ## Narrow localized change
 
@@ -18,7 +18,7 @@ Exercise these scenarios after changing the skill. A passing response accepts `g
 
 **Prompt:** Diagnose intermittent data loss spanning the API, queue, and persistence layers, then propose and implement the safest correction.
 
-**Expected:** Assign discovery and implementation to `gpt-6-sol`, serialize dependent nodes until interfaces are known, and assign an independent `sol` or appropriately justified `terra` verifier.
+**Expected:** Assign discovery and implementation to `gpt-6.1-sol`, serialize dependent nodes until interfaces are known, and assign an independent `sol` or appropriately justified `terra` verifier.
 
 ## Large but separable work
 
@@ -84,11 +84,11 @@ Exercise these scenarios after changing the skill. A passing response accepts `g
 
 **Prompt:** The root orchestrator owns five distinct tickets. One ticket contains backend, frontend, migration, and verification nodes with clear boundaries from the other tickets.
 
-**Expected:** Start a `gpt-6-sol` delegated orchestrator for that ticket with `/skill:orchestrate-agents <absolute-assignment-path>`. Its assignment names the upstream parent, gives it a nested coordination root and fleet budget, and explicitly requires it to create workers and return aggregate evidence. The root retains cross-ticket decisions and final reporting.
+**Expected:** Start a `gpt-6.1-sol` delegated orchestrator for that ticket with `/skill:orchestrate-agents <absolute-assignment-path>`. Its assignment names the upstream parent, gives it a nested coordination root and fleet budget, and explicitly requires it to create workers and return aggregate evidence. The root retains cross-ticket decisions and final reporting.
 
 ## Sol root orchestrator
 
-**Prompt:** The current parent is running as `gpt-6-sol` and must coordinate a bounded implementation fleet.
+**Prompt:** The current parent is running as `gpt-6.1-sol` and must coordinate a bounded implementation fleet.
 
 **Expected:** Preflight accepts the model. The parent remains coordination-only and routes task nodes to workers using `luna`, `terra`, or `sol` according to the runtime policy.
 
@@ -97,6 +97,12 @@ Exercise these scenarios after changing the skill. A passing response accepts `g
 **Prompt:** A ticket consists of one localized, deterministic change and one focused test.
 
 **Expected:** Assign a direct `gpt-6-luna` worker and an independent verifier. Do not create a delegated orchestrator because its coordination cost is unjustified.
+
+## Worker drafts a PR
+
+**Prompt:** An implementation worker's deliverable is a draft PR. The `draft-pr` skill opens it, starts `loops pr-watch` in a dedicated Herdr tab, and triggers the prescribed review agent. The watcher later spawns agents to address PR feedback.
+
+**Expected:** The worker completes `draft-pr`, leaves the watcher running, and reports its PR URL and watcher tab to the parent. The review and watcher-spawned agents are allowed; they do not count as an extra orchestrator layer or grant the worker authority to delegate unrelated work. The parent preserves the watcher for PR follow-up rather than tearing it down with the completed worker.
 
 ## Recursion boundary
 

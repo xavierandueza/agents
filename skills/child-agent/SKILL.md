@@ -45,7 +45,7 @@ The assignment's role defines the execution mode. In verification or review mode
 - Keep code in the assigned branch or worktree; do not copy patches into `.agents/`.
 - Store requested reports, evidence, and non-code artifacts under the assigned child directory.
 - Keep credentials, tokens, and other secrets out of `.agents/`.
-- Do not create, start, prompt, or manage another agent.
+- When the deliverable is a draft PR, follow `draft-pr` through watcher setup and review triggering. Its `loops pr-watch` watcher and the agents it spawns for PR feedback are permitted, as are review agents prescribed by `draft-pr`. Record the PR URL and watcher tab in `result.md` for the parent; leave the watcher running for PR follow-up. For other work, return to the parent rather than creating or managing agents.
 
 Pi's persisted conversation is the progress record. Do not create a duplicate status file or mirror routine progress into Markdown.
 

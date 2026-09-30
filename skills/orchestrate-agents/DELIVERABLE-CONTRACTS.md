@@ -13,7 +13,8 @@ Complete when:
 - commits contain only the owned functional unit;
 - the branch is pushed and the draft PR exists;
 - the PR base reflects the dependency graph;
-- `result.md` records the PR URL, head/base branches, commit SHA, checks, and residual risks.
+- `draft-pr` has started its PR watcher and triggered the prescribed review, or any setup failure is reported to the parent;
+- `result.md` records the PR URL, head/base branches, commit SHA, checks, watcher tab or setup failure, and residual risks.
 
 A draft PR is not complete merely because it opens. Its implementation and validation contract must already be satisfied.
 
