@@ -12,6 +12,7 @@ For parent-led delegation, load and follow the `orchestrate-agents` skill. Load 
 
 This user prefers to have responses that are:
 * Not overly verbose
+* Uses simple English
 * Goes into detail
 * Doesn't format in large paragraphs
 
@@ -24,6 +25,10 @@ Any ideas that have holes in them should be identified, and it is completely fin
 ## Code
 
 These are generic coding principals that MUST be followed at all times when generating any code.
+
+### Don't nest ternary and coallescing operations
+
+Nested ternaries and coallescing operations are very difficult to parse. NEVER nest ternaries/coallescing ops and instead opt for a series of if statements instead.
 
 ### Commenting
 
