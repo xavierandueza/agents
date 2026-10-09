@@ -1,30 +1,34 @@
 ---
 name: draft-pr
 disable-model-invocation: false
-description: Prepare and open a draft PR. Pass the ticket ID as the argument (e.g. /draft-pr RM-123).
+description: Open a draft PR, verify its implementation against the agreed spec with a fresh internal subagent, and start PR reviews. Pass the ticket ID or task name.
 ---
 
 # Draft PR
 
 ## Steps
 
-### 1. Resolve ticket ID
+### 1. Resolve the task and base
 
-The ticket ID comes from the invocation argument (e.g. `RM-123`). If not provided, check what git branch you're on now and use the ticket id from that.
+Use the invocation's ticket ID (e.g. `RM-123`), or infer it from the branch. For ticketless work, use the supplied task name or a short branch-derived name without inventing a ticket ID.
 
-**Completion criterion:** ticket ID confirmed.
+Establish the intended PR base from the supplied context; for a stacked PR, use the predecessor branch. Otherwise use the repository's default branch. Confirm task changes are committed and pushed, preserving unrelated changes.
+
+**Completion criterion:** task identifier, ticket presence, and PR base are known; the task branch is pushed.
 
 ### 2. Gather context
 
-Read every file under `.agents/<ticket-id>/` — plans, notes, specs. Then run:
+Read relevant plans, notes, and specs under `.agents/<ticket-id-or-name>/`, when present, and the existing ticket. Resolve the agreed spec from the supplied path, local working spec, or ticket requirements. If none exists, ask for the intended requirements before publishing; do not reverse-engineer a spec from the implementation.
+
+Inspect the changes against the actual PR base:
 
 ```sh
-git diff origin/main...HEAD
+git diff <base-ref>...HEAD
 ```
 
-Use both to understand what was done and why.
+Use the agreed spec and diff to understand what was done and why. Keep the spec source available for the independent verifier.
 
-**Completion criterion:** you understand the scope and intent of the change well enough to write a brief, accurate summary.
+**Completion criterion:** the agreed spec is identified and you understand the change well enough to write a brief, accurate summary.
 
 ### 3. Detect PR template
 
@@ -49,6 +53,7 @@ Format:
 - **type**: `feat` / `fix` / `chore` / `docs` / `refactor`
 - **scope**: the affected area (e.g. `agent-chat`, `auth`, `billing`)
 - **summary**: for fixes, describe the _problem_, not the solution
+- For ticketless work, omit the ticket ID from the title.
 
 Examples:
 ```
@@ -62,9 +67,9 @@ feat(agent-chat): RM-101 Add model selector
 
 Populate the template from step 3:
 
-- **Resolves**: the ticket ID
+- **Resolves**: the ticket ID; omit this entry when there is no ticket
 - **Changes**: high-level _what_, never _how_. Dot points only. Never describe files or code internals — reviewers can read the diff. For fixes, include a concise BEFORE / AFTER.
-- **QA & Testing**: how you verified it's complete - NOTE that added tests are obvious and don't need to be included, don't add that information. Otherwise, instruct the user on what they need to test to ensure that its working as intended, including edge cases.
+- **QA & Testing**: how a human can verified it's complete - NOTE that added tests/current tests passing are obvious from CI. Don't add that information. Otherwise, instruct the user on what they need to test to ensure that its working as intended, including edge cases.
 
 Leave the recording/images line as-is — the human fills that in.
 
@@ -72,12 +77,15 @@ Leave the recording/images line as-is — the human fills that in.
 
 ### 6. Open the draft PR
 
+If this branch already has the intended PR, reuse it rather than creating a duplicate; keep it in draft state. Otherwise create it:
+
 ```sh
 ASSIGNEE=$(gh api user --jq '.login')
 
 gh pr create \
   --draft \
   --assignee "$ASSIGNEE" \
+  --base "<base-branch>" \
   --title "<title>" \
   --body "<body>"
 ```
@@ -86,14 +94,33 @@ Capture the PR URL from the output.
 
 **Completion criterion:** PR is open in draft state, URL captured.
 
-### 7. Start a `loops` session on the draft PR
+### 7. Verify the PR against the spec
+
+Start a fresh `subagent`, independent of the implementers and spec critic. Supply the original request, agreed spec path or ticket requirements, repository location, and PR URL. This verification is required for every repository, regardless of its other review automation.
+
+Ask the verifier to:
+
+- Read the agreed spec and inspect the actual PR diff and head, not just the PR description or implementation report. Identify the exact head commit being verified.
+- Map each requirement and acceptance criterion to implementation and test evidence, reporting what is met, missing, incorrect, or blocked.
+- Investigate relevant code at the PR head. Run checks where possible; if the local checkout does not match that head, inspect fetched PR files and report checks that cannot be safely run against it.
+- Report scope deviations, untested requirements, and remaining risks. Review only; leave implementation changes to the task owner.
+
+Wait for the result and save the returned report at `.agents/<ticket-id-or-name>/spec-verification.md`, including the PR URL and verified head SHA.
+
+During approved auto-implementation, fix in-scope gaps, rerun relevant checks, push, and resume this verifier against the updated PR. Otherwise report the gaps and obtain authorization for changes. Resolve product ambiguities with the user; preserve the agreed spec rather than weakening it to fit the implementation.
+
+If the PR head changes after verification, reverify the new head before reporting completion. If the subagent tool, spec, or checks are unavailable, report verification as blocked; an open draft PR alone is not a verified implementation.
+
+**Completion criterion:** the verifier confirms that the current PR head implements the agreed spec, or the PR is explicitly reported as incomplete with its gaps or blockers.
+
+### 8. Start a `loops` session on the draft PR
 
 The custom `loops` CLI watches PRs for comments and spins out an agent to analyze, fix, and respond to them.
 
 Run the bundled script, resolving its path relative to this `SKILL.md`:
 
 ```sh
-scripts/start-pr-loop.sh <ticket-id> <pr-url>
+scripts/start-pr-loop.sh <ticket-id-or-name> <pr-url>
 ```
 
 The script creates a dedicated **Herdr tab** (the Herdr equivalent of a window) in the current workspace, roots it at the repository, and starts `loops pr-watch` without stealing focus. The process runs until manually stopped.
@@ -101,12 +128,3 @@ The script creates a dedicated **Herdr tab** (the Herdr equivalent of a window) 
 If the script fails, report its error. Do not run the watcher in the current pane, append `&`, or otherwise bypass the script.
 
 **Completion criterion:** the watcher is running in a dedicated, labelled Herdr tab for this ticket, and the current agent pane remains available.
-
-### 8. Trigger Review Agents
-
-There are 2x ways that you should do this, depending on the repository that you are in.
-
-1. For the `ai` and `readme` repositories: Trigger by adding the `anand-review` label to the pull request.
-2. For any other repository trigger another agent with the `/thermo-nuclear-code-quality-review` skill passing:
-  - `ticketId`: the ticket ID from step 1
-  - `prUrl`: the GitHub PR URL from step 6

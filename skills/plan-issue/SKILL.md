@@ -9,9 +9,8 @@ disable-model-invocation: true
 Work collaboratively with the user to completely plan out an issue.
 
 Start by reading the `grill-and-record` and running a grilling session with the user. During this grilling session you should ask the user whether this will be implemented in a single PR, or implemented across more PRs and thus requiring sub-tickets.
-If there are gaps in code understanding, or research that needs to be done use the `orchestrate-agents` skill to spin out sub-agents that will execute on these and report back findings.
 
-After a comprehensive shared understanding is reached, confirm with the user that there's nothing more to discuss and then invoke the `to-spec` skill to make the spec.
+After a comprehensive shared understanding is reached, confirm with the user that there's nothing more to discuss and then invoke the `to-spec-with-tech-detail` skill to make the spec.
 
 Usually the spec is written directly to the linear ticket, but if one does not exist then the local .agents/<ticket-id-or-name>/spec.md is where it should live.
 
