@@ -16,7 +16,7 @@ Select models by role:
 
 - `anthropic/claude-opus-5-5`: default for planning, spec creation, and code implementation, including ambiguous or cross-cutting work.
 - `openai-codex/gpt-6.1-sol`: default for reviewing plans/specs, code quality, and implementation against the agreed spec. Use it for reviews even when the review is well scoped.
-- `anthropic/claude-haiku-5`: well-scoped, low-ambiguity tasks such as codebase exploration, information gathering, summarization, and straightforward/well-scoped and understood changes.
+- `anthropic/claude-haiku-5-5`: well-scoped, low-ambiguity tasks such as codebase exploration, information gathering, summarization, and straightforward/well-scoped and understood changes.
 
 Select the provider and model explicitly for each agent. Escalate Haiku tasks to Opus when they reveal significant ambiguity or risk; keep review work on Sol. Choose thinking effort appropriate to the task.
 
