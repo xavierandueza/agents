@@ -4,9 +4,20 @@ This contains generic instructions for agents to follow when working.
 
 ## Agent orchestration
 
-Use Herdr as the control plane for agent orchestration. Start Pi agents only; other Herdr agent kinds are out of scope unless the user explicitly changes this policy.
+Use internal Pi subagents for delegation within the current task. Pass the request, relevant context, and expected result directly; resume the same subagent when continuity is useful.
 
-For parent-led delegation, load and follow the `orchestrate-agents` skill. Load `herdr` for current Herdr command semantics.
+Start a new Herdr Pi agent only for independently owned work in another worktree. Generally use one worktree and one agent per ticket; a parent ticket's subtickets can each have their own. 
+
+You are running in Herdr, and you can use the `herdr` skill for worktree, workspace, pane/window management.
+
+## Models
+
+Available models use the `openai-codex` provider:
+
+- `openai-codex/gpt-6.1-sol`: vague, ambiguous, high-risk, or cross-cutting work requiring discovery and judgment, including spec design and critique. For broader implementation or vague implementation tasks too.
+- `openai-codex/gpt-6-luna`: narrowly scoped implementation, codebase exploration, information gathering, and summarization.
+
+Select the model explicitly for each subagent. Escalate scoped work to `sol` when it reveals significant ambiguity or risk. Choose thinking effort appropriate to the task.
 
 ## Response format
 
