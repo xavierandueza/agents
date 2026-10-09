@@ -12,12 +12,13 @@ You are running in Herdr, and you can use the `herdr` skill for worktree, worksp
 
 ## Models
 
-Available models use the `openai-codex` provider:
+Select models by role:
 
-- `openai-codex/gpt-6.1-sol`: vague, ambiguous, high-risk, or cross-cutting work requiring discovery and judgment, including spec design and critique. For broader implementation or vague implementation tasks too.
-- `openai-codex/gpt-6-luna`: narrowly scoped implementation, codebase exploration, information gathering, and summarization.
+- `anthropic/claude-opus-5-5`: default for planning, spec creation, and code implementation, including ambiguous or cross-cutting work.
+- `openai-codex/gpt-6.1-sol`: default for reviewing plans/specs, code quality, and implementation against the agreed spec. Use it for reviews even when the review is well scoped.
+- `anthropic/claude-haiku-5`: well-scoped, low-ambiguity tasks such as codebase exploration, information gathering, summarization, and straightforward/well-scoped and understood changes.
 
-Select the model explicitly for each subagent. Escalate scoped work to `sol` when it reveals significant ambiguity or risk. Choose thinking effort appropriate to the task.
+Select the provider and model explicitly for each agent. Escalate Haiku tasks to Opus when they reveal significant ambiguity or risk; keep review work on Sol. Choose thinking effort appropriate to the task.
 
 ## Response format
 

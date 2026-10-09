@@ -27,7 +27,7 @@ herdr worktree create --cwd <repository> --branch <ticket-branch> --base <base-r
 Reuse an existing ticket worktree and agent when present rather than duplicating them. Read the workspace and available shell pane from the command response or discover them through Herdr. Start one uniquely named Pi agent there, selecting the model according to `AGENTS.md`:
 
 ```sh
-herdr agent start <ticket-agent-name> --kind pi --pane <pane-id> -- --provider openai-codex --model <model-id>
+herdr agent start <ticket-agent-name> --kind pi --pane <pane-id> -- --provider <provider> --model <model-id>
 ```
 
 Resolve the absolute path to [`auto-implement`](../auto-implement/SKILL.md). Start the prompt with `/skill:auto-implement <ticket-id>`. Include the repository/worktree, base branch, prerequisite branches/PRs, relevant user decisions, and approval to perform auto-implementation. Tell the agent to read the ticket for its full requirements. If the skill command is unavailable, have the same agent read the absolute skill path and execute it; do not create another agent.
