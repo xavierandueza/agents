@@ -128,3 +128,10 @@ The script creates a dedicated **Herdr tab** (the Herdr equivalent of a window) 
 If the script fails, report its error. Do not run the watcher in the current pane, append `&`, or otherwise bypass the script.
 
 **Completion criterion:** the watcher is running in a dedicated, labelled Herdr tab for this ticket, and the current agent pane remains available.
+
+### 9. (Optional) Add review label(s)
+
+On the `readme` and `ai` repositories, you must add the `anand-review` label to the pull request.
+
+This triggers an AI review of the pull request using project standards and more, and will leave comments that the `loops` session will pickup and auto-resolve.
+
