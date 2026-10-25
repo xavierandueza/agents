@@ -1,0 +1,22 @@
+{
+  "settings": {
+    "toolPrefix": "server",
+    "idleTimeout": 10
+  },
+  "mcpServers": {
+    "linear": {
+      "url": "https://mcp.linear.app/mcp",
+      "auth": "oauth"
+    },
+    "langfuse": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://us.cloud.langfuse.com/api/public/mcp",
+        "--header-file",
+        "/run/secrets/langfuse-mcp-headers"
+      ]
+    }
+  }
+}
