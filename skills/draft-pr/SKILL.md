@@ -68,7 +68,11 @@ feat(agent-chat): RM-101 Add model selector
 Populate the template from step 3:
 
 - **Resolves**: the ticket ID; omit this entry when there is no ticket
-- **Changes**: high-level _what_, never _how_. Dot points only. Never describe files or code internals — reviewers can read the diff. For fixes, include a concise BEFORE / AFTER.
+- **Changes**: high-level business context of the _why_ followed by the _what_, never _how_. Dot points only. Never describe files or code internals — reviewers can read the diff. 
+  - For fixes, include a concise BEFORE / AFTER.
+  - Usually its good to include a h3 OOS section:
+    - This should come from the context from the ticket, pr stack, local `.agents/<ticket-id-or-name>/<file>.md`
+    - Just dot points on this is fine
 - **QA & Testing**: how a human can verified it's complete - NOTE that added tests/current tests passing are obvious from CI. Don't add that information. Otherwise, instruct the user on what they need to test to ensure that its working as intended, including edge cases.
 
 Leave the recording/images line as-is — the human fills that in.
@@ -94,33 +98,14 @@ Capture the PR URL from the output.
 
 **Completion criterion:** PR is open in draft state, URL captured.
 
-### 7. Verify the PR against the spec
-
-Start a fresh `subagent`, independent of the implementers and spec critic. Supply the original request, agreed spec path or ticket requirements, repository location, and PR URL. This verification is required for every repository, regardless of its other review automation.
-
-Ask the verifier to:
-
-- Read the agreed spec and inspect the actual PR diff and head, not just the PR description or implementation report. Identify the exact head commit being verified.
-- Map each requirement and acceptance criterion to implementation and test evidence, reporting what is met, missing, incorrect, or blocked.
-- Investigate relevant code at the PR head. Run checks where possible; if the local checkout does not match that head, inspect fetched PR files and report checks that cannot be safely run against it.
-- Report scope deviations, untested requirements, and remaining risks. Review only; leave implementation changes to the task owner.
-
-Wait for the result and save the returned report at `.agents/<ticket-id-or-name>/spec-verification.md`, including the PR URL and verified head SHA.
-
-During approved auto-implementation, fix in-scope gaps, rerun relevant checks, push, and resume this verifier against the updated PR. Otherwise report the gaps and obtain authorization for changes. Resolve product ambiguities with the user; preserve the agreed spec rather than weakening it to fit the implementation.
-
-If the PR head changes after verification, reverify the new head before reporting completion. If the subagent tool, spec, or checks are unavailable, report verification as blocked; an open draft PR alone is not a verified implementation.
-
-**Completion criterion:** the verifier confirms that the current PR head implements the agreed spec, or the PR is explicitly reported as incomplete with its gaps or blockers.
-
 ### 8. Start a `loops` session on the draft PR
 
 The custom `loops` CLI watches PRs for comments and spins out an agent to analyze, fix, and respond to them.
 
-Run the bundled script, resolving its path relative to this `SKILL.md`:
+The `loops` cli should be installed on the device so you should be able to run with `loops`:
 
 ```sh
-scripts/start-pr-loop.sh <ticket-id-or-name> <pr-url>
+scripts/start-pr-loop.sh <pr-number> <pr-url>
 ```
 
 The script creates a dedicated **Herdr tab** (the Herdr equivalent of a window) in the current workspace, roots it at the repository, and starts `loops pr-watch` without stealing focus. The process runs until manually stopped.
