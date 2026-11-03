@@ -1,7 +1,7 @@
 ---
 name: draft-pr
 disable-model-invocation: false
-description: Open a draft PR, verify its implementation against the agreed spec with a fresh internal subagent, and start PR reviews. Pass the ticket ID or task name.
+description: Open a draft PR and gather sufficient evidence to prove that the task has been completed. Pass the ticket ID or task name.
 ---
 
 # Draft PR
@@ -74,6 +74,7 @@ Populate the template from step 3:
     - This should come from the context from the ticket, pr stack, local `.agents/<ticket-id-or-name>/<file>.md`
     - Just dot points on this is fine
 - **QA & Testing**: how a human can verified it's complete - NOTE that added tests/current tests passing are obvious from CI. Don't add that information. Otherwise, instruct the user on what they need to test to ensure that its working as intended, including edge cases.
+- **Verification**: How this work was verified to be completed. Usually this will include screenshots or videos - prefer visual evidence over written evidence. Typically there will be some evidence in the `.agents/<ticket-id-or-name>/` folder that you can use - also refer to the `verify` skill if you need to run verification yourself
 
 Leave the recording/images line as-is — the human fills that in.
 
