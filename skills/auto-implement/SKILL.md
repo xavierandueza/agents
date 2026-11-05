@@ -57,9 +57,13 @@ Keep the spec faithful to the agreed scope. Material design changes go back to t
 
 **Complete when:** the agreed behavior is implemented and the task commits are pushed, with required checks passing or remaining failures/blockers explicitly reported.
 
-## 5. Publish and verify
+## 5. Verify
 
-Load [`draft-pr`](../draft-pr/SKILL.md), supplying the ticket ID or task name, agreed spec path, and correct PR base. Follow its post-publication spec verification and review workflow, including repairing implementation gaps when authorized.
+Run the verify skill in the repository, or if one doesn't exist the generic [`verify`](../verify/SKILL.md) skill to verify the results and correct any observed issues.
+
+## 6. Draft PR
+
+Load [`draft-pr`](../draft-pr/SKILL.md), supplying the ticket ID or task name, agreed spec path, and correct PR base.
 
 Finish with the draft PR URL, check results, spec verification outcome, and remaining blockers. Keep the PR in draft state; merging is outside this workflow.
 
