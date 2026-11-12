@@ -21,5 +21,6 @@
 
 ## Verification
 - How you verified that this was implemented as per the spec
+- If there's visual components, attach here. Videos better than images, images better than text.
 - Refer to validation skill for this
 
