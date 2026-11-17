@@ -10,6 +10,8 @@ Start a new Herdr Pi agent only for independently owned work in another worktree
 
 You are running in Herdr, and you can use the `herdr` skill for worktree, workspace, pane/window management.
 
+To send prompts to other herdr panels, you need to send with `ctrl + enter` NOT just `enter` - keep that in mind when doing any herdr agent management.
+
 ## Models
 
 Select models by role:
@@ -99,12 +101,3 @@ DON'T autonomously decide to go and make changes UNLESS you receive express perm
 ### The user cares DEEPLY about best practice
 
 This user always wants to know about best practice standards, patterns and more. When answerint their questions - always mention what is best-practice for the topic/task at hand. This is particularly when there are other methods that may work better than what they may be proposing/asking for feedback on.
-
-## MCP
-
-You have access to mcp tools, but need to search for the tools that you have access.
-
-As of writing you have access to:
-
-* Linear
-* Langfuse
