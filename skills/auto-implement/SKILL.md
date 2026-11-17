@@ -61,6 +61,10 @@ Keep the spec faithful to the agreed scope. Material design changes go back to t
 
 Run the verify skill in the repository, or if one doesn't exist the generic [`verify`](../verify/SKILL.md) skill to verify the results and correct any observed issues.
 
+ACs that need running services go through the validation slot (`verify`'s [`SLOT.md`](../verify/SLOT.md)). Book it after the task commits are pushed, and hold it only while you exercise ACs. A missing environment is something to ask for, not a reason to skip: ask your fleet lead, or the user, for the slot. Mark `NOT VERIFIED` only when the slot itself can't exercise the AC, and say why.
+
+**Complete when:** every AC is `VERIFIED` or `FAILED`, or `NOT VERIFIED` for a reason the slot can't overcome.
+
 ## 6. Draft PR
 
 Load [`draft-pr`](../draft-pr/SKILL.md), supplying the ticket ID or task name, agreed spec path, and correct PR base.
