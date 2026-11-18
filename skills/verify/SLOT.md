@@ -24,6 +24,8 @@ Run `slot status`. If someone else holds it:
 - `--repo`: one per repo you run, as `name:branch:sha:path`.
 - `--expected-end`: an honest estimate. Run `slot extend` before you overrun it.
 
+Keep the lock id `acquire` prints, and pass `--id <lock id>` to every `slot stop` and `slot release`. It's what stops a late call from tearing down the next holder's stack.
+
 ## 3. Run the stack
 
 - Run each repo from a worktree of the branch under test:
@@ -42,7 +44,7 @@ Run `slot status`. If someone else holds it:
 
 Release even when ACs fail or you're blocked:
 1. Copy logs or evidence you need into `vNN/`.
-2. Run `slot release`. It stops everything on the slot's ports.
+2. Run `slot release --id <lock id>`. It stops everything on the slot's ports.
 3. Close the tab you created (`herdr tab close <tab-id>`).
 
 **Done when:** `slot status` shows the slot free and your slot tab is gone.
