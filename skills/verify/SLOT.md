@@ -1,6 +1,6 @@
 # Running services: the validation slot
 
-Each machine has one **validation slot**: a full stack on its own ports and data, guarded by a lock. Load the `validation-slot` skill (readmeio/skills). It owns the protocol: `slot.env`, the `slot` script, start order, reset and release. This file adds how to run it under Herdr. If that skill isn't installed, stop and ask the user.
+Each machine has one **validation slot**: a full stack on its own ports and data, guarded by a lock. Load the `validation-slot` skill. It owns the protocol: `slot.env`, the `slot` script, start order, reset and release. This file adds how to run it under Herdr. If that skill isn't installed, stop and ask the user.
 
 The slot is yours alone while you hold the lock: start, stop, rebuild and reset anything in it. The default dev stack and everything outside the slot belong to the user and other agents.
 
@@ -35,7 +35,7 @@ Keep the lock id `acquire` prints, and pass `--id <lock id>` to every `slot stop
 
   The user's main checkouts stay untouched.
 - Create one tab for the slot: `herdr tab create --workspace <your-workspace> --cwd <worktree> --label slot --no-focus`. Then split one pane per repo.
-- Reset first (the slot skill's reset step), then start in its order (gitto, ai, readme). Use `herdr pane run <pane> "make start-validation"` from that repo's worktree. Wait for each service to report ready (`herdr pane wait-output <pane> --match <its banner text>`) before starting the next.
+- Reset first (the slot skill's reset step), then start in the order given if one is provided from the `validation-slot` skill. Use `herdr pane run <pane> "make start-validation"` from that repo's worktree. Wait for each service to report ready (`herdr pane wait-output <pane> --match <its banner text>`) before starting the next.
 - Exercise the ACs as `verify` describes. Browsers use an isolated named session.
 
 **Done when:** every AC that needs running services has evidence in `vNN/`.
