@@ -35,7 +35,7 @@ Keep the lock id `acquire` prints, and pass `--id <lock id>` to every `slot stop
 
   The user's main checkouts stay untouched.
 - Create one tab for the slot: `herdr tab create --workspace <your-workspace> --cwd <worktree> --label slot --no-focus`. Then split one pane per repo.
-- Reset first (the slot skill's reset step), then start in the order given if one is provided from the `validation-slot` skill. Use `herdr pane run <pane> "make start-validation"` from that repo's worktree. Wait for each service's ready line **or** its exit before starting the next: `herdr pane wait-output <pane> --regex '<ready line>|exited with code'`. A banner isn't readiness. If a start exits, stop and report it with the output.
+- Reset first (the slot skill's reset step), then start in the order given if one is provided from the `validation-slot` skill. Use `herdr pane run <pane> "make start-validation"` from that repo's worktree. Wait for each service's ready line **or** its exit before starting the next: `herdr pane wait-output <pane> --regex '\[ready\] validation slot: \w+ ready|exited with code' --timeout 900000` (the timeout is in milliseconds). A banner isn't readiness. If a start exits, stop and report it with the output.
 - The slot starts empty after reset. Creating users, projects, flags and content is part of your run, so budget time for it.
 - Exercise the ACs as `verify` describes. Browsers use an isolated named session.
 
