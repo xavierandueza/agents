@@ -21,7 +21,7 @@ List machines with `herdr machine list`. Each one runs its own Herdr server, so 
 Each machine has one validation slot (`verify`'s [`SLOT.md`](../verify/SLOT.md)), and tickets whose ACs need running services queue for it. Spread those tickets across machines. Tickets that only need unit-level checks go wherever there's capacity.
 
 Before launching, on every machine you'll use:
-- `~/validation-slot/slot.env` exists. If it's missing, tell the user and point them at `slot.env.example` in the `validation-slot` skill.
+- `~/validation-slot/.env.isolated` exists (or `$VALIDATION_SLOT_ENV` points at one). If it's missing, tell the user and point them at the setup step in the `validation-slot` skill.
 - `slot status` runs.
 - Each tool the agents need works there: the ticket tracker MCP, the Node toolchain, `gh` auth. Where one doesn't, give agents the ticket text in a file on that machine, apply tracker updates yourself, and put machine quirks in their prompts.
 
