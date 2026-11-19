@@ -56,7 +56,7 @@ Install dependencies before acquiring, so you don't hold a lock while installing
 
 ## 3. Acquire a stack
 
-First check the machine has spare memory: `free -g` shows at least 10 GiB available for a full stack, or 4 GiB for backend only. A full stack uses about 7 GiB (the emulator alone about 3.6 GiB). If it doesn't, don't acquire a free stack: wait until a held stack is released (its lock dir disappears), check memory again, then acquire that one.
+First check the machine has spare memory: `free -g` shows at least 12 GiB available for a full stack, or 4 GiB for backend only. A full stack uses about 9 GiB: the emulator 5–6.5 GiB (it grows with uptime), the API, admin and Metro about 1.7 GiB, Supabase about 0.8 GiB. If it doesn't, don't acquire a free stack: wait until a held stack is released (its lock dir disappears), check memory again, then acquire that one.
 
 Then set the three variables for a stack and acquire it:
 
