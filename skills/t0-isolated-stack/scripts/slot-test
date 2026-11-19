@@ -1,0 +1,965 @@
+#!/bin/sh
+# Self-test for scripts/slot. Runs on a temp HOME, lock dir and stack.env with docker stubbed on PATH.
+# ISOLATED_TEST_SHELL picks the shell that runs slot, e.g. ISOLATED_TEST_SHELL="bash --posix" (default: sh).
+# The dummy listener needs python3 or perl; slot itself doesn't.
+# Assertions are single-quoted strings for `eval`, and port_* variables are assigned through eval.
+# shellcheck disable=SC2016,SC2034,SC2105,SC2154
+set -u
+
+here=$(cd "$(dirname "$0")" && pwd)
+test_shell=${ISOLATED_TEST_SHELL:-sh}
+tmp=$(mktemp -d)
+listener_pid=''
+
+cleanup() {
+	if [ -n "$listener_pid" ]; then
+		kill "$listener_pid" 2>/dev/null
+	fi
+	rm -rf "$tmp"
+}
+trap cleanup EXIT
+trap 'exit 1' INT TERM
+
+for inherited in $(env | sed -n 's/^\(ISOLATED_[A-Za-z0-9_]*\)=.*/\1/p'); do
+	unset "$inherited"
+done
+unset VALIDATION_PORT_TOOL
+export HOME="$tmp/home"
+export VALIDATION_LOCK_DIR="$HOME/validation-lock"
+export VALIDATION_LOCK_LOG="$HOME/validation-lock.log"
+export VALIDATION_SLOT_ENV="$tmp/stack.env"
+lock=$VALIDATION_LOCK_DIR
+owner_md=$lock/owner.md
+mkdir -p "$HOME" "$tmp/bin" "$tmp/qemu-bin" "$tmp/fast-bin" "$tmp/avd-runtime-bin" "$tmp/guard-bin" "$tmp/runtime-bin" "$tmp/unknown-bin" "$tmp/broken-lsof-bin" "$tmp/gate-bin" "$tmp/hostile" \
+	"$tmp/ss-bin" "$tmp/linux-bin" "$tmp/darwin-bin" "$tmp/crash-lsof-bin" "$tmp/bare-bin"
+
+real_os=$(uname -s)
+real_lsof=$(command -v lsof)
+real_ss=$(command -v ss)
+if [ -z "$real_lsof" ] && { [ "$real_os" = Darwin ] || [ -z "$real_ss" ]; }; then
+	echo "Bail out! the self-test needs lsof (or ss on Linux) to check its fixture ports"
+	exit 1
+fi
+# Prints "<port> <pid>" for TCP listeners on the given ports (every port if none), without using slot's code. Exits 3 if it can't tell.
+{
+	echo '#!/bin/sh'
+	printf 'real_os=%s real_lsof=%s real_ss=%s\n' "$real_os" "$real_lsof" "$real_ss"
+	cat <<'EOF'
+if [ "$real_os" != Darwin ] && [ -n "$real_ss" ]; then
+	raw=$("$real_ss" -ltnpH) || exit 3
+	printf '%s\n' "$raw" | awk -v ports=" $* " 'NF {
+		port = $4; sub(/.*:/, "", port)
+		if (ports != "  " && index(ports, " " port " ") == 0) next
+		pid = ""
+		if (match($0, /pid=[0-9]+/)) pid = substr($0, RSTART + 4, RLENGTH - 4)
+		print port, pid
+	}' | sort -u
+	exit 0
+fi
+raw=$("$real_lsof" -w -nP -iTCP -sTCP:LISTEN -Fpn 2>&1)
+[ "$?" -le 1 ] || exit 3
+! printf '%s\n' "$raw" | grep -q '^[^pfn]' || exit 3
+printf '%s\n' "$raw" | awk -v ports=" $* " '/^p/ { pid = substr($0, 2) } /^n/ {
+	port = $0; sub(/.*:/, "", port)
+	if (ports == "  " || index(ports, " " port " ")) print port, pid
+}' | sort -u
+EOF
+} >"$tmp/listeners"
+chmod +x "$tmp/listeners"
+
+# Records each call's args. DOCKER_STUB_* variables simulate the project's containers, their host ports and failures.
+cat >"$tmp/bin/docker" <<EOF
+#!/bin/sh
+echo "\$*" >>"$tmp/docker.calls"
+case \$1 in
+info) [ -z "\${DOCKER_STUB_NO_DAEMON-}" ] ;;
+ps)
+	if [ -d "\$VALIDATION_LOCK_DIR" ] && [ ! -e "\$VALIDATION_LOCK_DIR/owner.md" ]; then
+		echo lock-held-at-ps >>"$tmp/docker.calls"
+	fi
+	echo "\${DOCKER_STUB_CONTAINERS-}"
+	;;
+inspect) echo "\${DOCKER_STUB_HOST_PORTS-}" ;;
+rm)
+	if [ -n "\${DOCKER_STUB_WATCH_PORT-}" ] && [ -n "\$("$tmp/listeners" "\$DOCKER_STUB_WATCH_PORT")" ]; then
+		echo listener-alive-at-rm >>"$tmp/docker.calls"
+	fi
+	[ -z "\${DOCKER_STUB_FAIL-}" ]
+	;;
+esac
+EOF
+# Record calls and report no listeners, so a broken guard can't reach a real process.
+cat >"$tmp/guard-bin/lsof" <<EOF
+#!/bin/sh
+echo "\$*" >>"$tmp/lsof.calls"
+EOF
+cat >"$tmp/guard-bin/ss" <<EOF
+#!/bin/sh
+echo "\$*" >>"$tmp/ss.calls"
+EOF
+# Prints SS_STUB_OUTPUT and exits with SS_STUB_EXIT.
+cat >"$tmp/ss-bin/ss" <<'EOF'
+#!/bin/sh
+printf '%s\n' "${SS_STUB_OUTPUT-}"
+exit "${SS_STUB_EXIT:-0}"
+EOF
+printf '#!/bin/sh\necho Linux\n' >"$tmp/linux-bin/uname"
+printf '#!/bin/sh\necho Darwin\n' >"$tmp/darwin-bin/uname"
+# Mimics lsof 4.99 on Linux, which aborts when given a port list.
+cat >"$tmp/crash-lsof-bin/lsof" <<EOF
+#!/bin/sh
+case "\$*" in
+*-iTCP:*,*)
+	echo 'free(): chunks in smallbin corrupted' >&2
+	exit 134
+	;;
+esac
+exec "$real_lsof" "\$@"
+EOF
+# A PATH with what slot and the test shells need, but no docker, ss or lsof.
+for tool in sh dash bash mkdir date sed awk tr cat mv rm rmdir dirname basename env sort grep uname id ps sleep cut head tail; do
+	tool_path=$(command -v "$tool") || continue
+	case $tool_path in
+	/*) ln -s "$tool_path" "$tmp/bare-bin/$tool" ;;
+	esac
+done
+# Makes every listener look like a container runtime's port forwarder.
+cat >"$tmp/runtime-bin/ps" <<'EOF'
+#!/bin/sh
+echo /opt/homebrew/bin/limactl
+EOF
+printf '#!/bin/sh\n' >"$tmp/runtime-bin/sleep"
+# Makes every listener's command unidentifiable.
+printf '#!/bin/sh\n' >"$tmp/unknown-bin/ps"
+printf '#!/bin/sh\n' >"$tmp/unknown-bin/sleep"
+# Skips slot's one-second waits between kill rounds.
+printf '#!/bin/sh\n' >"$tmp/fast-bin/sleep"
+# Makes every listener look like a port forwarder whose args name the stack's AVD.
+printf '#!/bin/sh\necho gvproxy -avd t0-selftest\n' >"$tmp/avd-runtime-bin/ps"
+# A listener named like the Android emulator: Linux names a script's process after the script file, and its args stay visible to ps.
+if perl_path=$(command -v perl); then
+	printf '#!%s\nuse IO::Socket::INET;\nmy $s = IO::Socket::INET->new(LocalAddr => "127.0.0.1", LocalPort => $ARGV[0], Listen => 1, ReuseAddr => 1) or die;\nsleep 600;\n' "$perl_path" >"$tmp/qemu-bin/qemu-system-x86"
+else
+	printf '#!%s\nimport socket, sys, time\ns = socket.socket()\ns.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\ns.bind(("127.0.0.1", int(sys.argv[1])))\ns.listen(1)\ntime.sleep(600)\n' "$(command -v python3)" >"$tmp/qemu-bin/qemu-system-x86"
+fi
+printf '#!/bin/sh\necho "lsof: status error on /dev/fd: Permission denied" >&2\nexit 1\n' >"$tmp/broken-lsof-bin/lsof"
+printf 'services: {}\n' >"$tmp/hostile/compose.yaml"
+# Pauses a release's or stop's claim rename until $MV_STUB_GATE.go exists, to replay a late call.
+cat >"$tmp/gate-bin/mv" <<EOF
+#!/bin/sh
+case \$2 in
+*/owner.md.releasing.* | */owner.md.stopping.*)
+	: >"\$MV_STUB_GATE.waiting"
+	n=0
+	while [ ! -e "\$MV_STUB_GATE.go" ] && [ "\$n" -lt 300 ]; do
+		sleep 0.1 2>/dev/null || sleep 1
+		n=\$((n + 1))
+	done
+	;;
+esac
+exec $(command -v mv) "\$@"
+EOF
+chmod +x "$tmp/bin/docker" "$tmp/guard-bin/lsof" "$tmp/runtime-bin/ps" "$tmp/runtime-bin/sleep" \
+	"$tmp/unknown-bin/ps" "$tmp/unknown-bin/sleep" "$tmp/fast-bin/sleep" "$tmp/avd-runtime-bin/ps" "$tmp/qemu-bin/qemu-system-x86" "$tmp/broken-lsof-bin/lsof" "$tmp/gate-bin/mv" \
+	"$tmp/guard-bin/ss" "$tmp/ss-bin/ss" "$tmp/linux-bin/uname" "$tmp/darwin-bin/uname" "$tmp/crash-lsof-bin/lsof"
+PATH="$tmp/bin:$PATH"
+
+passed=0
+failed=0
+
+ok() {
+	passed=$((passed + 1))
+	printf 'ok - %s\n' "$1"
+}
+
+not_ok() {
+	failed=$((failed + 1))
+	printf 'not ok - %s\n' "$1"
+	printf '  status: %s\n  output:\n%s\n' "$status" "$(printf '%s\n' "$out" | sed 's/^/    /')"
+}
+
+expect() {
+	description=$1
+	shift
+	if "$@"; then
+		ok "$description"
+	else
+		not_ok "$description"
+	fi
+}
+
+slot() {
+	# shellcheck disable=SC2086
+	$test_shell "$here/slot" "$@"
+}
+
+run() {
+	out=$(slot "$@" 2>&1)
+	status=$?
+}
+
+has() {
+	case $out in
+	*"$1"*) return 0 ;;
+	esac
+	return 1
+}
+
+status_is() {
+	[ "$status" -eq "$1" ]
+}
+
+locked() {
+	[ -f "$owner_md" ]
+}
+
+unlocked() {
+	[ ! -d "$lock" ]
+}
+
+listening() {
+	found=$("$tmp/listeners" "$1") || {
+		echo "Bail out! could not list the listeners on port $1"
+		exit 1
+	}
+	[ -n "$found" ]
+}
+
+not_listening() {
+	! listening "$1"
+}
+
+acquire_as() {
+	owner=$1
+	shift
+	run acquire --owner "$owner" --check "touch $tmp/check-ran" --ticket RM-1 \
+		--objective "self-test" --expected-end +30m "$@"
+}
+
+set_expected_end() {
+	sed "s/^expected_end: .*/expected_end: $1/" "$owner_md" >"$owner_md.new" &&
+		mv "$owner_md.new" "$owner_md"
+}
+
+make_overdue() {
+	set_expected_end 2000-01-01T00:00:00Z
+}
+
+docker_calls() {
+	grep "^$1" "$tmp/docker.calls" 2>/dev/null
+}
+
+# 20000-29999 sits below the default macOS and Linux ephemeral ranges, so outgoing connections don't normally claim these ports.
+used_ports=" $("$tmp/listeners" | cut -d ' ' -f 1 | tr '\n' ' ') "
+p=$((20000 + $$ % 9000))
+fixture_ports=''
+for name in SUPABASE_API SUPABASE_DB SUPABASE_SHADOW SUPABASE_INBUCKET API ADMIN QUEUE QUEUE_OIDC METRO EXTRA WORKER; do
+	while :; do
+		case $used_ports in
+		*" $p "*) p=$((p + 1)) ;;
+		*) break ;;
+		esac
+	done
+	eval "port_$name=$p"
+	fixture_ports="$fixture_ports $p"
+	p=$((p + 1))
+done
+# The emulator port must be even and within 5556-5584, and the emulator also listens on the next port (adb).
+port_EMULATOR=''
+p=5556
+while [ "$p" -le 5584 ]; do
+	case $used_ports in
+	*" $p "* | *" $((p + 1)) "*) ;;
+	*)
+		port_EMULATOR=$p
+		break
+		;;
+	esac
+	p=$((p + 2))
+done
+if [ -z "$port_EMULATOR" ]; then
+	echo "Bail out! no free even port in 5556-5584 whose next port is free too"
+	exit 1
+fi
+port_ADB=$((port_EMULATOR + 1))
+fixture_ports="$fixture_ports $port_EMULATOR $port_ADB"
+
+# Aborts unless the only listener on a fixture port is the test's own dummy (on port $1, if given), so stop can't hit anyone else's process.
+assert_fixture_idle() {
+	expected=''
+	if [ -n "${1-}" ]; then
+		expected="$1 $listener_pid"
+	fi
+	# shellcheck disable=SC2086
+	actual=$("$tmp/listeners" $fixture_ports) || {
+		echo "Bail out! could not list the listeners on the fixture ports"
+		exit 1
+	}
+	if [ "$actual" != "$expected" ]; then
+		echo "Bail out! unexpected listeners on fixture ports (want \"$expected\", got \"$actual\"); aborting before slot could stop them."
+		exit 1
+	fi
+}
+
+write_slot_env() {
+	cat >"$VALIDATION_SLOT_ENV" <<EOF
+ISOLATED_COMPOSE_PROJECT=t0-selftest
+ISOLATED_DATA_DIR=$HOME/isolated-t0/selftest/data
+ISOLATED_API_PORT=${1:-$port_API}
+ISOLATED_SUPABASE_API_PORT=$port_SUPABASE_API
+ISOLATED_SUPABASE_DB_PORT=$port_SUPABASE_DB
+ISOLATED_SUPABASE_SHADOW_PORT=$port_SUPABASE_SHADOW
+ISOLATED_SUPABASE_INBUCKET_PORT=$port_SUPABASE_INBUCKET
+ISOLATED_ADMIN_PORT=$port_ADMIN
+ISOLATED_QUEUE_PORT=$port_QUEUE
+ISOLATED_QUEUE_OIDC_PORT=$port_QUEUE_OIDC
+ISOLATED_METRO_PORT=$port_METRO
+ISOLATED_EMULATOR_PORT=$port_EMULATOR
+ISOLATED_AVD=t0-selftest
+EOF
+}
+
+# Writes $VALIDATION_SLOT_ENV from the fixture stack.env passed through the sed script $1.
+write_bad_env() {
+	sed "$1" "$good_env" >"$VALIDATION_SLOT_ENV"
+}
+
+start_listener() {
+	if command -v python3 >/dev/null 2>&1; then
+		python3 -c 'import socket, sys, time
+s = socket.socket()
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+s.bind(("127.0.0.1", int(sys.argv[1])))
+s.listen(1)
+time.sleep(600)' "$1" &
+	else
+		# The socket must be kept in a variable, or perl closes it straight away.
+		perl -MIO::Socket::INET -e 'my $s = IO::Socket::INET->new(LocalAddr => "127.0.0.1", LocalPort => $ARGV[0], Listen => 1, ReuseAddr => 1) or die; sleep 600' "$1" &
+	fi
+	listener_pid=$!
+	await_listener "$1"
+}
+
+# start_qemu <port> <args>...: a dummy listener whose command name is qemu-system-x86, like the emulator's.
+start_qemu() {
+	"$tmp/qemu-bin/qemu-system-x86" "$@" &
+	listener_pid=$!
+	await_listener "$1"
+}
+
+await_listener() {
+	tries=0
+	while not_listening "$1" && [ "$tries" -lt 50 ]; do
+		sleep 0.1 2>/dev/null || sleep 1
+		tries=$((tries + 1))
+	done
+}
+
+# Kills the test's own dummy listener on port $1 and waits until the port is free.
+kill_listener() {
+	kill "$listener_pid" 2>/dev/null
+	listener_pid=''
+	while listening "$1"; do
+		sleep 1
+	done
+}
+
+echo "# slot self-test (slot runs under: $test_shell)"
+
+echo "# usage"
+run
+expect "no command exits 2" status_is 2
+run --help
+expect "--help exits 0 and explains the stale-lock rule" eval 'status_is 0 && has "Stale-lock rule"'
+run frobnicate
+expect "an unknown command exits 2" status_is 2
+run acquire --check c --ticket t --objective o --expected-end +5m
+expect "acquire without --owner is a usage error" eval 'status_is 2 && has "--owner is required"'
+acquire_as agent
+expect "acquire without stack.env exits 1 and points to stack.env.example" eval 'status_is 1 && has "stack.env.example"'
+
+echo "# VALIDATION_SLOT_ENV, VALIDATION_LOCK_DIR and VALIDATION_LOCK_LOG are required"
+for var in VALIDATION_SLOT_ENV VALIDATION_LOCK_DIR VALIDATION_LOCK_LOG; do
+	out=$(
+		unset "$var"
+		slot status 2>&1
+	)
+	status=$?
+	expect "a command without $var is a usage error that says where to point all three" \
+		eval 'status_is 2 && has "$var is not set" && has "\$HOME/isolated-t0/<name>/stack.env" && has "\$HOME/isolated-t0/<name>/lock " && has "\$HOME/isolated-t0/<name>/lock.log"'
+done
+out=$(VALIDATION_LOCK_DIR='' slot acquire --owner agent --check c --ticket RM-1 --objective o --expected-end +30m 2>&1)
+status=$?
+expect "an empty VALIDATION_LOCK_DIR is a usage error and takes no lock" eval 'status_is 2 && has "VALIDATION_LOCK_DIR is not set" && unlocked'
+out=$(
+	unset VALIDATION_SLOT_ENV VALIDATION_LOCK_DIR VALIDATION_LOCK_LOG
+	slot --help 2>&1
+)
+status=$?
+expect "--help works without them" eval 'status_is 0 && has "Stale-lock rule" && has "now: not set"'
+
+echo "# acquire validates stack.env before taking the lock"
+write_slot_env
+good_env=$VALIDATION_SLOT_ENV
+VALIDATION_SLOT_ENV=$tmp/bad.env
+cat >"$VALIDATION_SLOT_ENV" <<EOF
+ISOLATED_README_PORT=$port_API
+ISOLATED_GITTO_PORT=$port_ADMIN
+ISOLATED_AI_PORT=$port_METRO
+ISOLATED_DATA_DIR=$HOME/isolated/s1/data
+ISOLATED_COMPOSE_PROJECT=isolated-s1
+EOF
+acquire_as agent
+expect "acquire rejects a readme stack env, which has no t0 port variables" eval 'status_is 1 && has "is not set in $VALIDATION_SLOT_ENV" && has stack.env.example && unlocked'
+write_bad_env 's/^ISOLATED_COMPOSE_PROJECT=.*/ISOLATED_COMPOSE_PROJECT=t0_backend/'
+acquire_as agent
+expect "acquire rejects the default Supabase project t0_backend" eval 'status_is 1 && has "default dev Supabase project" && unlocked'
+write_bad_env 's/^ISOLATED_AVD=.*/ISOLATED_AVD=t0/'
+acquire_as agent
+expect "acquire rejects the default AVD t0" eval 'status_is 1 && has "default dev AVD" && unlocked'
+write_bad_env '/^ISOLATED_AVD=/d'
+acquire_as agent
+expect "acquire rejects a stack.env without ISOLATED_AVD" eval 'status_is 1 && has "ISOLATED_AVD is not set" && unlocked'
+write_bad_env 's/^ISOLATED_AVD=.*/ISOLATED_AVD=T0-selftest/'
+acquire_as agent
+expect "acquire rejects an invalid AVD name" eval 'status_is 1 && has "not a valid AVD name" && unlocked'
+write_bad_env "s/^ISOLATED_EMULATOR_PORT=.*/ISOLATED_EMULATOR_PORT=$port_ADB/"
+acquire_as agent
+expect "acquire rejects an odd emulator port" eval 'status_is 1 && has "must be even and within 5556-5584" && unlocked'
+write_bad_env 's/^ISOLATED_EMULATOR_PORT=.*/ISOLATED_EMULATOR_PORT=5586/'
+acquire_as agent
+expect "acquire rejects an emulator port above 5584" eval 'status_is 1 && has "must be even and within 5556-5584" && unlocked'
+write_bad_env 's/^ISOLATED_EMULATOR_PORT=.*/ISOLATED_EMULATOR_PORT=5554/'
+acquire_as agent
+expect "acquire rejects the default emulator port" eval 'status_is 1 && has "default dev port" && unlocked'
+write_bad_env "s/^ISOLATED_METRO_PORT=.*/ISOLATED_METRO_PORT=$port_ADB/"
+acquire_as agent
+expect "acquire rejects a stack port that is the emulator's adb port" eval 'status_is 1 && has "adb port" && unlocked'
+expect "rejected stack.env files leave no log entry" test ! -s "$VALIDATION_LOCK_LOG"
+VALIDATION_SLOT_ENV=$good_env
+
+echo "# time parsing"
+acquire_as agent --expected-end 2026-11-18T15:30
+expect "a time without a zone is rejected" eval 'status_is 2 && has "invalid time"'
+acquire_as agent --expected-end 2001-01-01T00:00:00Z
+expect "a past time is rejected" eval 'status_is 2 && has "not in the future"'
+acquire_as agent --expected-end 2030-02-30T00:00:00Z
+expect "Feb 30 is rejected" status_is 2
+acquire_as agent --expected-end 2100-02-29T00:00:00Z
+expect "Feb 29 in a non-leap century is rejected" status_is 2
+acquire_as agent --expected-end 2030-01-01T24:00:00Z
+expect "hour 24 is rejected" status_is 2
+acquire_as agent --expected-end +1234567m
+expect "+<N>m over 6 digits is rejected" status_is 2
+acquire_as agent --expected-end +0m
+expect "+0m is rejected" status_is 2
+acquire_as agent --repo gitto:main
+expect "a malformed --repo is rejected" eval 'status_is 2 && has "<name>:<branch>:<sha>:<path>"'
+acquire_as "$(printf 'two\nlines')"
+expect "a multi-line value is rejected" status_is 2
+expect "rejected acquires leave no lock behind" unlocked
+
+echo "# status when free"
+run status
+expect "status reports free" eval 'status_is 0 && has "free"'
+
+echo "# concurrent acquire"
+i=1
+while [ "$i" -le 12 ]; do
+	(
+		slot acquire --owner "agent-$i" --check "touch $tmp/check-ran" --ticket RM-1 \
+			--objective "race $i" --expected-end +30m \
+			--repo "gitto:feat/x:abc123:$tmp/wt/gitto:with:colons" >"$tmp/race.$i" 2>&1
+		echo $? >"$tmp/race.$i.status"
+	) &
+	i=$((i + 1))
+done
+wait
+winners=$(grep -l '^0$' "$tmp"/race.*.status | wc -l | tr -d ' ')
+losers=$(grep -l '^1$' "$tmp"/race.*.status | wc -l | tr -d ' ')
+out="winners=$winners losers=$losers"
+status=0
+expect "exactly one of 12 concurrent acquires wins" eval '[ "$winners" -eq 1 ] && [ "$losers" -eq 11 ]'
+winner=$(sed -n 's/^owner: //p' "$owner_md")
+out=$(cat "$tmp/race.${winner#agent-}")
+expect "owner.md names the winner" has "acquired by $winner"
+out=$(cat "$owner_md")
+expect "owner.md has every field" eval 'has "id: " && has "owner: agent-" && has "check: touch $tmp/check-ran" && has "ticket: RM-1" && has "objective: race " && has "started: 20" && has "expected_end: 20" && has "slot_env: " && has "repos:"'
+expect "owner.md records the absolute stack.env path" grep -q "^slot_env: .*/stack.env$" "$owner_md"
+expect "owner.md records repos, keeping colons in the path" has "- name=gitto branch=feat/x sha=abc123 path=$tmp/wt/gitto:with:colons"
+expect "the log records exactly one acquire" eval '[ "$(grep -c " acquire " "$VALIDATION_LOCK_LOG")" -eq 1 ]'
+
+echo "# a taken slot"
+acquire_as agent-late
+expect "acquire on a taken slot exits 1 and shows the holder" eval 'status_is 1 && has "owner: $winner" && has "left"'
+
+echo "# status and extend"
+run status
+expect "status shows the owner, time left and the check line" eval 'status_is 0 && has "owner: $winner" && has "m left" && has "check: touch $tmp/check-ran"'
+expect "neither status nor acquire runs the check" test ! -e "$tmp/check-ran"
+run extend +90m
+expect "extend +90m succeeds" status_is 0
+run status
+expect "status reflects the extension" eval 'has "1h29m left" || has "1h30m left"'
+before=$(sed -n 's/^expected_end: //p' "$owner_md")
+run extend 2001-01-01T00:00:00Z
+expect "extend to a past time is refused and changes nothing" eval 'status_is 2 && [ "$(sed -n "s/^expected_end: //p" "$owner_md")" = "$before" ]'
+run extend 2099-06-01T12:00+02:00
+expect "extend stores an offset time as UTC" eval 'status_is 0 && grep -q "^expected_end: 2099-06-01T10:00:00Z$" "$owner_md"'
+run extend 2096-02-29T23:30-0130
+expect "extend accepts a leap day and rolls the offset over midnight" eval 'status_is 0 && grep -q "^expected_end: 2096-03-01T01:00:00Z$" "$owner_md"'
+
+echo "# break refuses a lock that is not overdue"
+run break --reason "impatient"
+expect "break on a lock that is not overdue exits 1" eval 'status_is 1 && has "not overdue"'
+expect "the lock is still held, with owner.md restored" eval 'locked && [ "$(sed -n "s/^owner: //p" "$owner_md")" = "$winner" ]'
+run break --reason "impatient" --force
+expect "--force doesn't override a lock that is not overdue" eval 'status_is 1 && locked'
+run break
+expect "break without --reason is a usage error" status_is 2
+
+echo "# overdue detection"
+make_overdue
+run status
+expect "status reports an overdue lock" has "OVERDUE by"
+acquire_as agent-late
+expect "acquire on an overdue lock exits 1 and says it is overdue" eval 'status_is 1 && has "OVERDUE by"'
+
+echo "# unreadable expiry"
+set_expected_end soon
+run break --reason "looks stuck" --force
+expect "break refuses an unreadable expected_end, even with --force" eval 'status_is 1 && locked && has "no readable expected_end"'
+make_overdue
+
+echo "# concurrent breakers"
+assert_fixture_idle
+: >"$tmp/docker.calls"
+for i in 1 2 3; do
+	(
+		slot break --reason "race $i" --by "breaker-$i" >"$tmp/break.$i" 2>&1
+		echo $? >"$tmp/break.$i.status"
+	) &
+done
+wait
+winners=$(grep -l '^0$' "$tmp"/break.*.status | wc -l | tr -d ' ')
+out=$(cat "$tmp"/break.*)
+status=0
+expect "exactly one of 3 concurrent breakers wins" eval '[ "$winners" -eq 1 ]'
+expect "break removes the lock" unlocked
+expect "break runs stop exactly once" eval '[ "$(docker_calls "ps -aq --filter label=com.docker.compose.project=t0-selftest" | wc -l)" -eq 1 ]'
+expect "the log records who broke it and why" grep -q " break by=\"breaker-[123]\" reason=\"race [123]\" owner=\"$winner\"" "$VALIDATION_LOCK_LOG"
+expect "the log records one break and one release" eval '[ "$(grep -c " break " "$VALIDATION_LOCK_LOG")" -eq 1 ] && [ "$(grep -c " release owner=\"$winner\"" "$VALIDATION_LOCK_LOG")" -eq 1 ]'
+
+echo "# a late breaker can't destroy a new lock"
+acquire_as agent-new
+mv "$owner_md" "$lock/owner.md.breaking.99999"
+run status
+expect "status shows a release or break in progress" eval 'has "in progress" && has "PID 99999"'
+acquire_as agent-other
+expect "acquire during a claim exits 1" status_is 1
+run break --reason "late"
+expect "a second breaker can't claim a lock that is already claimed" eval 'status_is 1 && has "owner.md is missing"'
+run extend +60m
+expect "extend fails while a break holds the claim, without recreating owner.md" eval 'status_is 1 && [ ! -e "$owner_md" ]'
+mv "$lock/owner.md.breaking.99999" "$owner_md"
+
+echo "# extend racing break"
+make_overdue
+mv "$owner_md" "$lock/owner.md.extending.99999"
+run break --reason "overdue"
+expect "break can't claim a lock while an extend holds the claim" eval 'status_is 1 && has "in progress"'
+mv "$lock/owner.md.extending.99999" "$owner_md"
+run extend +60m
+run break --reason "overdue"
+expect "once the extend lands, break sees the new expiry and refuses" eval 'status_is 1 && has "not overdue" && locked'
+
+echo "# a human holds the lock"
+run release
+expect "release frees the slot" eval 'status_is 0 && unlocked'
+acquire_as human
+make_overdue
+run break --reason "looks abandoned"
+expect "break refuses an overdue human lock without --force" eval 'status_is 1 && has "human holds the lock"'
+expect "the human lock is still held" locked
+assert_fixture_idle
+run break --reason 'they said "go" \o/' --force
+expect "break --force releases an overdue human lock" eval 'status_is 0 && unlocked'
+expect "the log escapes quotes and backslashes" grep -q ' reason="they said \\"go\\" \\\\o/"' "$VALIDATION_LOCK_LOG"
+
+echo "# release"
+: >"$tmp/docker.calls"
+run release
+expect "release on a free slot exits 1 and stops nothing" eval 'status_is 1 && [ ! -s "$tmp/docker.calls" ]'
+mkdir "$lock"
+run status
+expect "status explains a lock dir without owner.md" has "no owner.md"
+run release
+expect "release refuses a lock dir without owner.md" eval 'status_is 1 && [ -d "$lock" ]'
+run break --reason "crashed acquire" --force
+expect "break refuses a lock dir without owner.md" eval 'status_is 1 && [ -d "$lock" ]'
+rmdir "$lock"
+out=$(VALIDATION_LOCK_DIR="$lock/" slot acquire --owner agent --check c --ticket RM-1 --objective o --expected-end +5m 2>&1)
+assert_fixture_idle
+out="$out$(VALIDATION_LOCK_DIR="$lock/" slot release 2>&1)"
+status=$?
+expect "a trailing slash in VALIDATION_LOCK_DIR still releases" eval 'status_is 0 && unlocked'
+acquire_as agent
+moved_env=$VALIDATION_SLOT_ENV
+VALIDATION_SLOT_ENV="$tmp/missing.env"
+assert_fixture_idle
+run release
+expect "release uses the stack.env recorded in the lock" eval 'status_is 0 && unlocked && has "recorded in the lock"'
+VALIDATION_SLOT_ENV=$moved_env
+
+echo "# stop"
+start_listener "$port_API"
+assert_fixture_idle "$port_API"
+: >"$tmp/docker.calls"
+out=$(cd "$tmp/hostile" && DOCKER_STUB_WATCH_PORT="$port_API" DOCKER_STUB_CONTAINERS=c0ffee \
+	DOCKER_STUB_HOST_PORTS="$port_SUPABASE_DB" slot stop 2>&1)
+status=$?
+expect "stop exits 0" status_is 0
+expect "stop kills the listener on a slot port" not_listening "$port_API"
+expect "stop finds the slot's containers by compose project label" docker_calls "ps -aq --filter label=com.docker.compose.project=t0-selftest$"
+expect "stop removes them with docker rm -f, keeping volumes" eval '[ "$(docker_calls "rm ")" = "rm -f c0ffee" ]'
+expect "stop never runs docker compose, so the caller's cwd can't matter" eval '! docker_calls compose'
+expect "containers are removed before listeners are killed" docker_calls listener-alive-at-rm
+expect "stop on a free slot holds the lock while it runs, then frees it" eval 'docker_calls lock-held-at-ps && unlocked'
+listener_pid=''
+: >"$tmp/docker.calls"
+run stop
+expect "stop with no slot containers removes nothing" eval 'status_is 0 && ! docker_calls "rm "'
+
+echo "# stop holds the lock"
+mkdir "$lock"
+: >"$lock/stopping.99999"
+acquire_as agent
+expect "acquire is refused while a stop holds the free slot" eval 'status_is 1 && has "slot stop\" by PID 99999"'
+rm "$lock/stopping.99999"
+rmdir "$lock"
+acquire_as agent
+mv "$owner_md" "$lock/owner.md.stopping.99999"
+run release
+expect "release can't claim a lock while a stop holds the claim" eval 'status_is 1 && has "in progress"'
+mv "$lock/owner.md.stopping.99999" "$owner_md"
+assert_fixture_idle
+: >"$tmp/docker.calls"
+run stop
+expect "the holder's stop claims the lock while it runs, then restores owner.md" eval 'status_is 0 && docker_calls lock-held-at-ps && locked'
+assert_fixture_idle
+run release
+
+echo "# --id binds stop and release to one lock"
+acquire_as agent-a
+lock_id=$(sed -n 's/^id: //p' "$owner_md")
+expect "acquire prints the lock id recorded in owner.md" eval '[ -n "$lock_id" ] && has "lock id $lock_id"'
+: >"$tmp/docker.calls"
+run release --id "other-$lock_id"
+expect "release with another lock's id is refused and stops nothing" eval 'status_is 1 && locked && has "isn'\''t yours" && [ ! -s "$tmp/docker.calls" ]'
+run stop --id "other-$lock_id"
+expect "stop with another lock's id is refused and stops nothing" eval 'status_is 1 && locked && has "isn'\''t yours" && [ ! -s "$tmp/docker.calls" ]'
+run release --id
+expect "--id without a value is a usage error" eval 'status_is 2 && locked'
+assert_fixture_idle
+run stop --id "$lock_id"
+expect "stop with the holder's id keeps the lock" eval 'status_is 0 && locked'
+assert_fixture_idle
+run release --id "$lock_id"
+expect "release with the holder's id frees the slot" eval 'status_is 0 && unlocked'
+acquire_as agent-b
+: >"$tmp/docker.calls"
+run release --id "$lock_id"
+expect "a late release with the previous lock's id leaves the new holder alone" eval 'status_is 1 && locked && has "owner: agent-b" && [ ! -s "$tmp/docker.calls" ]'
+run stop --id "$lock_id"
+expect "a late stop with the previous lock's id leaves the new holder alone" eval 'status_is 1 && locked && [ ! -s "$tmp/docker.calls" ]'
+assert_fixture_idle
+run release
+: >"$tmp/docker.calls"
+run stop --id "$lock_id"
+expect "stop --id on a free slot is refused and stops nothing" eval 'status_is 1 && unlocked && [ ! -s "$tmp/docker.calls" ]'
+
+echo "# stop --id uses the stack.env recorded in the lock"
+acquire_as agent-a
+lock_id=$(sed -n 's/^id: //p' "$owner_md")
+sed 's/^ISOLATED_COMPOSE_PROJECT=.*/ISOLATED_COMPOSE_PROJECT=t0-selftest-b/' "$VALIDATION_SLOT_ENV" >"$tmp/b.env"
+printf 'ISOLATED_EXTRA_PORT=%s\n' "$port_EXTRA" >>"$tmp/b.env"
+start_listener "$port_EXTRA"
+assert_fixture_idle "$port_EXTRA"
+: >"$tmp/docker.calls"
+out=$(VALIDATION_SLOT_ENV="$tmp/b.env" slot stop --id "$lock_id" 2>&1)
+status=$?
+expect "stop --id with another caller's stack.env stops the lock's stack, not the caller's" \
+	eval 'status_is 0 && locked && has "recorded in the lock" && docker_calls "ps -aq --filter label=com.docker.compose.project=t0-selftest$" && ! docker_calls "ps -aq --filter label=com.docker.compose.project=t0-selftest-b"'
+expect "the listener on the caller's stack port is left alone" listening "$port_EXTRA"
+kill_listener "$port_EXTRA"
+assert_fixture_idle
+run release --id "$lock_id"
+
+echo "# a late stop or release paused before its claim"
+for late in release stop; do
+	acquire_as agent-a
+	id_a=$(sed -n 's/^id: //p' "$owner_md")
+	gate=$tmp/gate-$late
+	(
+		PATH="$tmp/gate-bin:$PATH" MV_STUB_GATE=$gate slot "$late" --id "$id_a" >"$gate.out" 2>&1
+		echo $? >"$gate.status"
+	) &
+	late_pid=$!
+	n=0
+	while [ ! -e "$gate.waiting" ] && [ "$n" -lt 300 ]; do
+		sleep 0.1 2>/dev/null || sleep 1
+		n=$((n + 1))
+	done
+	assert_fixture_idle
+	run release --id "$id_a"
+	handoff=$status
+	acquire_as agent-b
+	id_b=$(sed -n 's/^id: //p' "$owner_md")
+	: >"$tmp/docker.calls"
+	: >"$gate.go"
+	wait "$late_pid"
+	out=$(cat "$gate.out")
+	status=$(cat "$gate.status")
+	expect "a $late paused at its claim while the slot changed hands leaves the new holder's lock and slot alone" \
+		eval '[ -e "$gate.waiting" ] && [ "$handoff" -eq 0 ] && status_is 1 && has "isn'\''t yours" && grep -qx "id: $id_b" "$owner_md" && [ ! -s "$tmp/docker.calls" ]'
+	assert_fixture_idle
+	run release --id "$id_b"
+done
+
+echo "# stop finds every ISOLATED_*_PORT"
+write_slot_env
+printf 'export ISOLATED_EXTRA_PORT=%s ISOLATED_WORKER_PORT=%s\n' "$port_EXTRA" "$port_WORKER" >>"$VALIDATION_SLOT_ENV"
+start_listener "$port_WORKER"
+assert_fixture_idle "$port_WORKER"
+run stop
+expect "stop kills a listener on a port set in a multi-assignment line" eval 'status_is 0 && not_listening "$port_WORKER"'
+listener_pid=''
+write_slot_env
+printf 'if [ "${ENABLE_WORKER-}" = 1 ]; then ISOLATED_WORKER_PORT=%s; fi\n' "$port_WORKER" >>"$VALIDATION_SLOT_ENV"
+start_listener "$port_WORKER"
+assert_fixture_idle "$port_WORKER"
+out=$(ENABLE_WORKER=1 slot stop 2>&1)
+status=$?
+expect "stop kills a listener on a port the file sets conditionally" eval 'status_is 0 && not_listening "$port_WORKER"'
+listener_pid=''
+write_slot_env
+start_listener "$port_EXTRA"
+assert_fixture_idle "$port_EXTRA"
+out=$(ISOLATED_LEGACY_PORT="$port_EXTRA" slot stop 2>&1)
+status=$?
+expect "stop ignores ISOLATED_*_PORT variables inherited from the caller" eval 'status_is 0 && listening "$port_EXTRA"'
+kill "$listener_pid" 2>/dev/null
+listener_pid=''
+while listening "$port_EXTRA"; do
+	sleep 1
+done
+write_slot_env
+
+echo "# stop guards"
+rm -f "$VALIDATION_SLOT_ENV"
+run stop
+expect "stop without stack.env exits 1 and points to stack.env.example" eval 'status_is 1 && has "stack.env.example"'
+write_slot_env 8080
+: >"$tmp/docker.calls"
+out=$(PATH="$tmp/guard-bin:$PATH" slot stop 2>&1)
+status=$?
+expect "stop refuses a default dev port" eval 'status_is 1 && has "default dev port"'
+expect "the refusal happens before docker, ss or lsof run" eval '[ ! -s "$tmp/docker.calls" ] && [ ! -e "$tmp/lsof.calls" ] && [ ! -e "$tmp/ss.calls" ]'
+write_slot_env
+: >"$tmp/docker.calls"
+out=$(DOCKER_STUB_CONTAINERS=c0ffee DOCKER_STUB_HOST_PORTS="54322" slot stop 2>&1)
+status=$?
+expect "stop refuses a compose project that publishes a non-slot port" eval 'status_is 1 && has "isn'\''t the stack'\''s project" && ! docker_calls "rm "'
+out=$(DOCKER_STUB_NO_DAEMON=1 slot stop 2>&1)
+status=$?
+expect "stop fails closed when the docker daemon is unreachable" eval 'status_is 1 && has "not reachable"'
+out=$(DOCKER_STUB_CONTAINERS=c0ffee DOCKER_STUB_HOST_PORTS="$port_SUPABASE_DB" DOCKER_STUB_FAIL=1 slot stop 2>&1)
+status=$?
+expect "stop fails when docker rm fails" eval 'status_is 1 && has "could not remove the containers"'
+out=$(VALIDATION_PORT_TOOL=lsof PATH="$tmp/broken-lsof-bin:$PATH" slot stop 2>&1)
+status=$?
+expect "stop fails closed when lsof fails" eval 'status_is 1 && has "lsof failed"'
+acquire_as agent
+out=$(DOCKER_STUB_NO_DAEMON=1 slot release 2>&1)
+status=$?
+expect "release keeps the lock when stop fails" eval 'status_is 1 && locked && has "lock is kept"'
+out=$(VALIDATION_PORT_TOOL=lsof PATH="$tmp/broken-lsof-bin:$PATH" slot release 2>&1)
+status=$?
+expect "release keeps the lock when lsof fails" eval 'status_is 1 && locked'
+touch "$lock/.DS_Store"
+assert_fixture_idle
+run release
+expect "release keeps owner.md when the lock dir holds unexpected files" eval 'status_is 1 && locked && has "other than owner.md"'
+rm "$lock/.DS_Store"
+ln -s "$tmp/nowhere" "$lock/dangling"
+run release
+expect "release keeps owner.md when the lock dir holds a dangling symlink" eval 'status_is 1 && locked && has "other than owner.md"'
+rm "$lock/dangling"
+grep -v '^slot_env: ' "$owner_md" >"$tmp/owner.md.saved"
+cp "$owner_md" "$tmp/owner.md.full"
+cp "$tmp/owner.md.saved" "$owner_md"
+run release
+expect "release refuses a lock without slot_env" eval 'status_is 1 && locked && has "no slot_env"'
+make_overdue
+run break --reason "overdue"
+expect "break refuses a lock without slot_env" eval 'status_is 1 && locked && has "no slot_env"'
+cp "$tmp/owner.md.full" "$owner_md"
+assert_fixture_idle
+run release
+expect "release succeeds once the problems are fixed" eval 'status_is 0 && unlocked'
+
+echo "# acquire checks prerequisites before taking the lock"
+out=$(PATH="$tmp/bare-bin" slot acquire --owner agent --check c --ticket RM-1 --objective o --expected-end +30m 2>&1)
+status=$?
+expect "acquire without docker exits 1 and leaves the slot free" eval 'status_is 1 && has "docker is not on PATH" && unlocked'
+out=$(PATH="$tmp/bare-bin:$tmp/bin" slot acquire --owner agent --check c --ticket RM-1 --objective o --expected-end +30m 2>&1)
+status=$?
+expect "acquire without ss or lsof exits 1 and leaves the slot free" eval 'status_is 1 && has "not on PATH; slot needs" && unlocked'
+out=$(VALIDATION_PORT_TOOL=netstat slot acquire --owner agent --check c --ticket RM-1 --objective o --expected-end +30m 2>&1)
+status=$?
+expect "acquire rejects an unknown VALIDATION_PORT_TOOL" eval 'status_is 1 && has "must be ss or lsof" && unlocked'
+
+echo "# port tool choice"
+# Plus the emulator's adb port, which isn't in the file.
+slot_port_count=$(($(grep -c '_PORT=' "$VALIDATION_SLOT_ENV") + 1))
+rm -f "$tmp/lsof.calls" "$tmp/ss.calls"
+out=$(PATH="$tmp/linux-bin:$tmp/guard-bin:$PATH" slot stop 2>&1)
+status=$?
+expect "on Linux, stop finds listeners with one ss call when ss is on PATH" eval 'status_is 0 && [ "$(cat "$tmp/ss.calls")" = "-ltnpH" ] && [ ! -e "$tmp/lsof.calls" ]'
+rm -f "$tmp/lsof.calls" "$tmp/ss.calls"
+out=$(VALIDATION_PORT_TOOL=lsof PATH="$tmp/linux-bin:$tmp/guard-bin:$PATH" slot stop 2>&1)
+status=$?
+expect "on Linux, lsof is called once per slot port, never with a port list" eval 'status_is 0 && [ "$(grep -c . "$tmp/lsof.calls")" -eq "$slot_port_count" ] && ! grep -q -- "-iTCP:[0-9]*," "$tmp/lsof.calls"'
+rm -f "$tmp/lsof.calls" "$tmp/ss.calls"
+out=$(PATH="$tmp/darwin-bin:$tmp/guard-bin:$PATH" slot stop 2>&1)
+status=$?
+expect "on macOS, stop makes one lsof call for every slot port, even with ss on PATH" eval 'status_is 0 && [ ! -e "$tmp/ss.calls" ] && [ "$(grep -c . "$tmp/lsof.calls")" -eq 1 ] && grep -q -- "-iTCP:[0-9]*,[0-9]*" "$tmp/lsof.calls"'
+if [ -n "$real_lsof" ]; then
+	start_listener "$port_API"
+	assert_fixture_idle "$port_API"
+	out=$(PATH="$tmp/darwin-bin:$tmp/crash-lsof-bin:$PATH" slot stop 2>&1)
+	status=$?
+	expect "an lsof that aborts on a port list makes stop fail closed" eval 'status_is 1 && has "lsof failed (exit 134)" && listening "$port_API"'
+	assert_fixture_idle "$port_API"
+	out=$(VALIDATION_PORT_TOOL=lsof PATH="$tmp/linux-bin:$tmp/crash-lsof-bin:$PATH" slot stop 2>&1)
+	status=$?
+	expect "on Linux, lsof one port at a time frees the slot port that lsof aborts on" eval 'status_is 0 && not_listening "$port_API"'
+	listener_pid=''
+else
+	ok "an lsof that aborts on a port list makes stop fail closed # SKIP lsof is not installed"
+	ok "on Linux, lsof one port at a time frees the slot port that lsof aborts on # SKIP lsof is not installed"
+fi
+
+echo "# ss output"
+ss_out="LISTEN 0      511    127.0.0.1:$port_API  0.0.0.0:* users:((\"node\",pid=424242,fd=20),(\"node\",pid=424243,fd=20))
+LISTEN 0      4096        [::]:$port_ADMIN     [::]:* users:((\"node\",pid=424244,fd=21))
+LISTEN 0      4096           *:$port_METRO        *:*
+LISTEN 0      4096     0.0.0.0:1      0.0.0.0:* users:((\"other\",pid=424245,fd=3))"
+out=$(SS_STUB_OUTPUT="$ss_out" VALIDATION_PORT_TOOL=ss PATH="$tmp/ss-bin:$tmp/runtime-bin:$PATH" slot stop 2>&1)
+status=$?
+expect "stop reads every PID on a slot port from ss, over IPv4 and IPv6" eval 'has "port $port_API: PID 424242" && has "port $port_API: PID 424243" && has "port $port_ADMIN: PID 424244"'
+expect "a listener whose PID ss can't show is reported, not killed, and stop fails" eval 'status_is 1 && has "port $port_METRO: a process you can'\''t see"'
+expect "stop ignores ss listeners on other ports" eval '! has 424245'
+out=$(SS_STUB_OUTPUT="State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process" VALIDATION_PORT_TOOL=ss PATH="$tmp/ss-bin:$PATH" slot stop 2>&1)
+status=$?
+expect "stop fails closed on ss output it can't parse" eval 'status_is 1 && has "unexpected ss output"'
+out=$(SS_STUB_OUTPUT="ss: invalid option -- 'H'" SS_STUB_EXIT=1 VALIDATION_PORT_TOOL=ss PATH="$tmp/ss-bin:$PATH" slot stop 2>&1)
+status=$?
+expect "stop fails closed when ss fails" eval 'status_is 1 && has "ss failed"'
+
+echo "# release --force"
+acquire_as agent
+lock_id=$(sed -n 's/^id: //p' "$owner_md")
+run release --force
+expect "release --force without --id is a usage error" eval 'status_is 2 && locked && has "needs --id"'
+run stop --id "$lock_id" --force
+expect "stop has no --force" eval 'status_is 2 && locked'
+: >"$tmp/docker.calls"
+run release --id "other-$lock_id" --force
+expect "release --force with another lock's id is refused and stops nothing" eval 'status_is 1 && locked && has "isn'\''t yours" && [ ! -s "$tmp/docker.calls" ]'
+start_listener "$port_API"
+assert_fixture_idle "$port_API"
+out=$(DOCKER_STUB_CONTAINERS=c0ffee DOCKER_STUB_HOST_PORTS="$port_SUPABASE_DB" DOCKER_STUB_FAIL=1 slot release --id "$lock_id" 2>&1)
+status=$?
+expect "when stop fails, release keeps the lock and points the holder to --force" eval 'status_is 1 && locked && has "release --id <lock id> --force"'
+make_overdue
+out=$(DOCKER_STUB_CONTAINERS=c0ffee DOCKER_STUB_HOST_PORTS="$port_SUPABASE_DB" DOCKER_STUB_FAIL=1 slot break --reason gone --force 2>&1)
+status=$?
+expect "break --force never frees a lock whose stop failed" eval 'status_is 1 && locked && ! has "release --id"'
+out=$(DOCKER_STUB_CONTAINERS=c0ffee DOCKER_STUB_HOST_PORTS="$port_SUPABASE_DB" DOCKER_STUB_FAIL=1 slot release --id "$lock_id" --force 2>&1)
+status=$?
+expect "release --force by the holder frees the lock when stop fails" eval 'status_is 0 && unlocked && has "released with --force"'
+expect "it lists the containers and listeners still in the slot" eval 'has "container: c0ffee" && has "port $port_API: PID $listener_pid "'
+expect "the log records the forced release and what was left" eval 'grep " force-release " "$VALIDATION_LOCK_LOG" | grep -q "left=.container: c0ffee; port $port_API: PID $listener_pid "'
+kill "$listener_pid" 2>/dev/null
+listener_pid=''
+while listening "$port_API"; do
+	sleep 1
+done
+
+echo "# stop never kills a container runtime's port forwarder"
+start_listener "$port_SUPABASE_DB"
+assert_fixture_idle "$port_SUPABASE_DB"
+out=$(PATH="$tmp/runtime-bin:$PATH" slot stop 2>&1)
+status=$?
+expect "stop fails and reports the forwarder" eval 'status_is 1 && has "still running" && has "limactl"'
+expect "the forwarder is still listening" listening "$port_SUPABASE_DB"
+kill "$listener_pid" 2>/dev/null
+listener_pid=''
+
+echo "# stop never kills a process it can't identify"
+start_listener "$port_QUEUE"
+assert_fixture_idle "$port_QUEUE"
+out=$(PATH="$tmp/unknown-bin:$PATH" slot stop 2>&1)
+status=$?
+expect "stop fails and reports the unidentified listener" eval 'status_is 1 && has "still running" && has "unknown"'
+expect "the unidentified listener is still listening" listening "$port_QUEUE"
+kill_listener "$port_QUEUE"
+
+echo "# the stack's emulator"
+start_qemu "$port_EMULATOR" -avd t0-selftest -no-window
+if [ "$(ps -o comm= -p "$listener_pid")" = qemu-system-x86 ]; then
+	assert_fixture_idle "$port_EMULATOR"
+	run stop
+	expect "stop kills a qemu-system-* listener on ISOLATED_EMULATOR_PORT running the stack's AVD" eval 'status_is 0 && not_listening "$port_EMULATOR" && has "sending TERM to PID"'
+	kill_listener "$port_EMULATOR"
+	start_qemu "$port_ADB" -port "$port_EMULATOR" -avd t0-selftest
+	assert_fixture_idle "$port_ADB"
+	run stop
+	expect "stop kills one on ISOLATED_EMULATOR_PORT + 1 too, with -avd last in its args" eval 'status_is 0 && not_listening "$port_ADB"'
+	kill_listener "$port_ADB"
+	start_listener "$port_EMULATOR"
+	assert_fixture_idle "$port_EMULATOR"
+	out=$(PATH="$tmp/avd-runtime-bin:$tmp/fast-bin:$PATH" slot stop 2>&1)
+	status=$?
+	expect "stop leaves a runtime process that isn't qemu-system-* on the emulator port, even with the stack's -avd in its args" \
+		eval 'status_is 1 && has "still running" && listening "$port_EMULATOR"'
+	kill_listener "$port_EMULATOR"
+	for other_avd in other-avd t0-selftest-2; do
+		acquire_as agent
+		start_qemu "$port_EMULATOR" -avd "$other_avd" -no-window
+		assert_fixture_idle "$port_EMULATOR"
+		out=$(PATH="$tmp/fast-bin:$PATH" slot release 2>&1)
+		status=$?
+		expect "release leaves a qemu-system-* listener running AVD $other_avd on the emulator port, fails and keeps the lock" \
+			eval 'status_is 1 && locked && has "still running" && has "port $port_EMULATOR: PID $listener_pid (qemu-system-x86)" && listening "$port_EMULATOR"'
+		kill_listener "$port_EMULATOR"
+		assert_fixture_idle
+		run release
+	done
+	start_qemu "$port_METRO" -avd t0-selftest -no-window
+	assert_fixture_idle "$port_METRO"
+	out=$(PATH="$tmp/fast-bin:$PATH" slot stop 2>&1)
+	status=$?
+	expect "stop leaves a qemu-system-* listener running the stack's AVD on a port that isn't an emulator port, and fails" \
+		eval 'status_is 1 && has "still running" && has "port $port_METRO: PID $listener_pid (qemu-system-x86)" && listening "$port_METRO"'
+	kill_listener "$port_METRO"
+else
+	kill_listener "$port_EMULATOR"
+	for skipped in "stop kills the stack's emulator" "stop leaves a runtime that isn't qemu-system-*" "stop leaves another AVD's emulator" "stop leaves qemu on a non-emulator port"; do
+		ok "$skipped # SKIP this OS doesn't name a script's process after the script"
+	done
+fi
+
+echo "# $passed passed, $failed failed"
+[ "$failed" -eq 0 ]
