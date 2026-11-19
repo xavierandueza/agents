@@ -76,7 +76,9 @@ Populate the template from step 3:
 - **QA & Testing**: how a human can verified it's complete - NOTE that added tests/current tests passing are obvious from CI. Don't add that information. Otherwise, instruct the user on what they need to test to ensure that its working as intended, including edge cases.
 - **Verification**: How this work was verified to be completed. Usually this will include screenshots or videos - prefer visual evidence over written evidence. Typically there will be some evidence in the `.agents/<ticket-id-or-name>/` folder that you can use - also refer to the `verify` skill if you need to run verification yourself
 
-Leave the recording/images line as-is — the human fills that in.
+The best evidence to post on the PR description is the video walkthroughs - but if images show this exact evidence fine then that information is also okay.
+Usually for most features that have any potential impact on e2e functionality, you should post videos/images onto the PR body. 
+NOTE - you don't need to post every piece of evidence, it can just be main flows, so long as you post the full report as a comment and reference that comment with a link.
 
 **Completion criterion:** body is brief, accurate, and free of implementation detail.
 
