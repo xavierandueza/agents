@@ -2,28 +2,31 @@
 # Lock, inspect and clean up one isolated stack. `slot --help` explains the protocol.
 set -u
 
-lock_dir=${VALIDATION_LOCK_DIR:-$HOME/validation-lock}
+# t0: no default paths (see the check before the command dispatch), so a t0 agent can't fall through to another stack's files.
+lock_dir=${VALIDATION_LOCK_DIR-}
 while [ "$lock_dir" != / ] && [ "${lock_dir%/}" != "$lock_dir" ]; do
 	lock_dir=${lock_dir%/}
 done
-lock_log=${VALIDATION_LOCK_LOG:-$HOME/validation-lock.log}
-slot_env=${VALIDATION_SLOT_ENV:-$HOME/validation-slot/.env.isolated}
+lock_log=${VALIDATION_LOCK_LOG-}
+slot_env=${VALIDATION_SLOT_ENV-}
 owner_file=$lock_dir/owner.md
 
 nl='
 '
-default_ports='3000 3001 4000 9563 27017 6379 3999 9229 9230 9231'
-interface_port_vars='ISOLATED_README_PORT ISOLATED_MDX_PORT ISOLATED_GITTO_PORT ISOLATED_AI_PORT ISOLATED_MONGO_PORT ISOLATED_REDIS_PORT ISOLATED_OIDC_PORT'
+default_ports='54320 54321 54322 54323 54324 54327 54329 8080 3000 8123 8124 8081 8083 5554 5555 5037'
+interface_port_vars='ISOLATED_SUPABASE_API_PORT ISOLATED_SUPABASE_DB_PORT ISOLATED_SUPABASE_SHADOW_PORT ISOLATED_SUPABASE_INBUCKET_PORT ISOLATED_API_PORT ISOLATED_ADMIN_PORT ISOLATED_QUEUE_PORT ISOLATED_QUEUE_OIDC_PORT ISOLATED_METRO_PORT ISOLATED_EMULATOR_PORT'
 
-example_env='.env.isolated.example (in any gitto, ai or readme checkout)'
+example_env='stack.env.example in the t0-isolated-stack skill'
 
 usage() {
 	cat <<EOF
 slot: lock and clean up an isolated stack
 
-An isolated stack is a readme + gitto + ai stack on its own ports (from its
-.env.isolated) and its own data. A machine can run several, each with its own
-.env.isolated and lock dir; slot acts on the one the variables under Files name.
+An isolated stack is a t0 stack (Supabase, the API, the admin, the queue
+emulator, and optionally Metro and an Android emulator) on its own ports,
+Supabase project, AVD and data, all from its stack.env. A machine can run
+several, each with its own stack.env and lock dir; slot acts on the one the
+variables under Files name.
 Only the lock holder may start, stop, reset or use a stack. Nobody touches the
 default dev stack (ports $default_ports).
 
@@ -43,12 +46,11 @@ Usage:
 
 Commands:
   acquire   Take the lock with an atomic mkdir of the lock directory and write
-            owner.md. .env.isolated, docker and the port tool (see below) must exist;
-            they're checked before the lock is taken. If the stack is taken, print
-            the holder and whether the lock is overdue, then exit 1. Use --owner
-            human when a person holds it. Prints the lock id; pass it to stop and
-            release. Warns if .env.isolated has no ISOLATED_AI_TOKEN or ISOLATED_README_TOKEN,
-            without printing either value.
+            owner.md. stack.env must be valid (the same checks as stop), and
+            docker and the port tool (see below) must exist; they're checked
+            before the lock is taken. If the stack is taken, print the holder
+            and whether the lock is overdue, then exit 1. Use --owner human when
+            a person holds it. Prints the lock id; pass it to stop and release.
   status    Print the holder, time left or how overdue, and the check: line.
             The check is never run; run it yourself.
   extend    Move expected_end. Only the holder extends, before it passes.
@@ -56,14 +58,20 @@ Commands:
             1. docker rm -f the containers labelled with compose project
                \$ISOLATED_COMPOSE_PROJECT (volumes kept). Refused if that project
                publishes any port that isn't a stack port.
-            2. Kill the listeners on every ISOLATED_*_PORT in .env.isolated. Container
-               runtime port forwarders, unidentified processes and processes
-               you can't see (another user's) are never killed; they're
-               reported and stop fails.
-            Refuses default dev ports. Fails if docker is unavailable.
+            2. Kill the listeners on every ISOLATED_*_PORT in stack.env, and on
+               ISOLATED_EMULATOR_PORT + 1 (the emulator's adb port). Container
+               runtime port forwarders (including qemu), unidentified processes
+               and processes you can't see (another user's) are never killed;
+               they're reported and stop fails. The one exception is the
+               stack's emulator: a qemu-system-* listener on the two emulator
+               ports whose arguments contain -avd \$ISOLATED_AVD is killed.
+            Refuses default dev ports, the default Supabase project t0_backend,
+            the default AVD t0, and an ISOLATED_EMULATOR_PORT that isn't even
+            and within 5556-5584. Fails if docker is unavailable.
+            With a held lock, stop uses the stack.env recorded in owner.md.
             Holds the lock while it runs (taking it if the stack is free), so the
             stack can't change hands mid-stop.
-  release   Stop the stack using the .env.isolated recorded in owner.md, then remove
+  release   Stop the stack using the stack.env recorded in owner.md, then remove
             the lock and log it. If stop fails, the lock is kept, unless the
             holder passes --force (which needs --id): then release lists what
             is still running in the stack, logs it as force-release, and frees
@@ -89,10 +97,10 @@ Stale-lock rule:
   and only use --force with their agreement. A lock that slot can't read (no
   owner.md, or no valid expected_end) is for a human to inspect and remove.
 
-Files (paths can be overridden with the variables shown):
-  Lock dir  \${VALIDATION_LOCK_DIR:-\$HOME/validation-lock}      now: $lock_dir
-  Log       \${VALIDATION_LOCK_LOG:-\$HOME/validation-lock.log}  now: $lock_log
-  Env file  \${VALIDATION_SLOT_ENV:-\$HOME/validation-slot/.env.isolated}  now: $slot_env
+Files (every command but --help needs all three variables; there are no defaults):
+  Env file  \$VALIDATION_SLOT_ENV, e.g. \$HOME/isolated-t0/<name>/stack.env  now: ${slot_env:-not set}
+  Lock dir  \$VALIDATION_LOCK_DIR, e.g. \$HOME/isolated-t0/<name>/lock       now: ${lock_dir:-not set}
+  Log       \$VALIDATION_LOCK_LOG, e.g. \$HOME/isolated-t0/<name>/lock.log   now: ${lock_log:-not set}
   Template  $example_env
 
 Port tool: listeners are found with ss -ltnp on Linux (or lsof one port at a
@@ -354,7 +362,8 @@ cmd_acquire() {
 	reject_newlines --ticket "$ticket"
 	reject_newlines --objective "$objective"
 	expected_end=$(future_iso "$expected") || exit 2
-	[ -f "$slot_env" ] || die "no .env.isolated at $slot_env. Copy $example_env there, or set VALIDATION_SLOT_ENV."
+	# t0: a broken stack.env (or a readme one) must fail now, not at the holder's first stop.
+	(slot_config) || exit 1
 	slot_env_path=$(cd "$(dirname "$slot_env")" && pwd)/$(basename "$slot_env")
 	reject_newlines VALIDATION_SLOT_ENV "$slot_env_path"
 	# Release needs both, so a holder must not find out they're missing only after taking the stack.
@@ -392,27 +401,6 @@ cmd_acquire() {
 	log_event acquire owner "$owner" ticket "$ticket" expected_end "$expected_end"
 	echo "slot: acquired by $owner until $expected_end"
 	echo "slot: lock id $lock_id. Pass --id $lock_id to stop and release, so they only act on this lock."
-	token_state=$(slot_env_tokens)
-	case $token_state in
-	*" ai-set "*) ;;
-	*) printf 'slot: warning: ISOLATED_AI_TOKEN is not set in .env.isolated (use the AI_TOKEN from your ai .env). start-isolated refuses to start without it.\n' >&2 ;;
-	esac
-	case $token_state in
-	*" readme-set "*) ;;
-	*) printf 'slot: warning: ISOLATED_README_TOKEN is not set in .env.isolated (use SH_MIGRATION_WEBHOOK_AUTH from your readme .env). Without it, gitto'\''s calls to readme return 404.\n' >&2 ;;
-	esac
-	case $token_state in
-	*" readme-list "*) printf 'slot: warning: ISOLATED_README_TOKEN contains a comma; use a single value from SH_MIGRATION_WEBHOOK_AUTH.\n' >&2 ;;
-	esac
-}
-
-# Run in a subshell. Prints which .env.isolated tokens are set, never their values; bash 3.2 can't parse this case inside $(...).
-slot_env_tokens() {
-	load_slot_env >/dev/null 2>&1 || return 0
-	printf ' %s %s ' "${ISOLATED_AI_TOKEN:+ai-set}" "${ISOLATED_README_TOKEN:+readme-set}"
-	case ${ISOLATED_README_TOKEN-} in
-	*,*) printf 'readme-list ' ;;
-	esac
 }
 
 repo_line() {
@@ -462,12 +450,12 @@ cmd_extend() {
 }
 
 load_slot_env() {
-	[ -f "$slot_env" ] || die "no .env.isolated at $slot_env. Copy $example_env there, or set VALIDATION_SLOT_ENV."
+	[ -f "$slot_env" ] || die "no stack.env at $slot_env. Copy $example_env there, or set VALIDATION_SLOT_ENV."
 	case $slot_env in
 	*/*) env_path=$slot_env ;;
 	*) env_path=./$slot_env ;;
 	esac
-	# Only .env.isolated defines the stack, so ISOLATED_* variables inherited from the caller are dropped first.
+	# Only stack.env defines the stack, so ISOLATED_* variables inherited from the caller are dropped first.
 	for inherited in $(env | sed -n 's/^\(ISOLATED_[A-Za-z0-9_]*\)=.*/\1/p'); do
 		unset "$inherited"
 	done
@@ -492,6 +480,23 @@ is_runtime_process() {
 	*docker* | *vpnkit* | *lima* | *orbstack* | *rancher* | *podman* | *gvproxy* | *qemu* | *containerd* | *rootlesskit* | *slirp4netns* | ssh)
 		return 0
 		;;
+	esac
+	return 1
+}
+
+# t0: is_stack_emulator <port> <pid> <command name>. True only for a qemu-system-* listener on the stack's emulator ports booted with -avd $avd.
+is_stack_emulator() {
+	case " $emulator_ports " in
+	*" $1 "*) ;;
+	*) return 1 ;;
+	esac
+	case $3 in
+	qemu-system*) ;;
+	*) return 1 ;;
+	esac
+	args=$(ps -o args= -p "$2" 2>/dev/null) || return 1
+	case "$args " in
+	*" -avd $avd "*) return 0 ;;
 	esac
 	return 1
 }
@@ -628,7 +633,9 @@ free_ports() {
 			# An unidentified process might be a runtime's port forwarder, so it's reported rather than killed.
 			[ -n "$command_name" ] || continue
 			# A runtime's port forwarder serves every published container port; killing it would take down the default stack too.
-			is_runtime_process "${command_name##*/}" && continue
+			if is_runtime_process "${command_name##*/}" && ! is_stack_emulator "$port" "$pid" "${command_name##*/}"; then
+				continue
+			fi
 			if [ "$round" -le 5 ]; then
 				signal=TERM
 			else
@@ -651,7 +658,7 @@ EOF
 	done
 }
 
-# Loads .env.isolated and sets $ports and $project, refusing default dev ports.
+# Loads stack.env and sets $ports, $project, $emulator_ports and $avd, refusing default dev ports, project and AVD.
 slot_config() {
 	load_slot_env
 
@@ -668,10 +675,31 @@ slot_config() {
 		done
 		ports="$ports $port"
 	done
+	# t0: the emulator also listens on the next port (adb), so that's a stack port too.
+	emulator_port=$ISOLATED_EMULATOR_PORT
+	if [ $((emulator_port % 2)) -ne 0 ] || [ "$emulator_port" -lt 5556 ] || [ "$emulator_port" -gt 5584 ]; then
+		die "ISOLATED_EMULATOR_PORT=$emulator_port in $slot_env must be even and within 5556-5584"
+	fi
+	adb_port=$((emulator_port + 1))
+	for default_port in $default_ports; do
+		[ "$adb_port" != "$default_port" ] || die "ISOLATED_EMULATOR_PORT + 1 = $adb_port (the emulator's adb port) is a default dev port; refusing to touch it. Fix $slot_env."
+	done
+	case "$ports " in
+	*" $adb_port "*) die "ISOLATED_EMULATOR_PORT + 1 = $adb_port (the emulator's adb port) is also another stack port in $slot_env" ;;
+	esac
+	ports="$ports $adb_port"
+	emulator_ports="$emulator_port $adb_port"
 	project=${ISOLATED_COMPOSE_PROJECT-}
 	case $project in
 	'') die "ISOLATED_COMPOSE_PROJECT is not set in $slot_env; see $example_env" ;;
+	t0_backend) die "ISOLATED_COMPOSE_PROJECT=t0_backend is the default dev Supabase project; refusing to touch it. Fix $slot_env." ;;
 	*[!a-z0-9_-]* | [!a-z0-9]*) die "ISOLATED_COMPOSE_PROJECT=$project is not a valid compose project name" ;;
+	esac
+	avd=${ISOLATED_AVD-}
+	case $avd in
+	'') die "ISOLATED_AVD is not set in $slot_env; see $example_env" ;;
+	t0) die "ISOLATED_AVD=t0 is the default dev AVD; refusing to touch it. Fix $slot_env." ;;
+	*[!a-z0-9_-]* | [!a-z0-9]*) die "ISOLATED_AVD=$avd is not a valid AVD name ([a-z0-9][a-z0-9_-]*)" ;;
 	esac
 }
 
@@ -751,6 +779,7 @@ cmd_stop() {
 	else
 		claim_lock stopping stop
 		require_lock_id
+		use_recorded_env
 		trap 'unclaim_lock; exit 130' INT TERM HUP
 		(stop_slot)
 		stopped=$?
@@ -784,18 +813,23 @@ report_leftovers() {
 	)
 }
 
-release_claimed() {
-	holder=$(field owner "$claimed")
-	ticket=$(field ticket "$claimed")
+# Points $slot_env at the stack.env recorded in the claimed owner.md, so a held stack is stopped as its holder defined it.
+use_recorded_env() {
 	recorded_env=$(field slot_env "$claimed")
 	if [ -z "$recorded_env" ]; then
 		unclaim_lock
-		die "owner.md has no slot_env, so slot can't tell which .env.isolated the holder used. Ask a human to inspect the lock."
+		die "owner.md has no slot_env, so slot can't tell which stack.env the holder used. Ask a human to inspect the lock."
 	fi
 	if [ "$recorded_env" != "$slot_env" ]; then
-		echo "slot: using the .env.isolated recorded in the lock: $recorded_env"
+		echo "slot: using the stack.env recorded in the lock: $recorded_env"
 		slot_env=$recorded_env
 	fi
+}
+
+release_claimed() {
+	holder=$(field owner "$claimed")
+	ticket=$(field ticket "$claimed")
+	use_recorded_env
 	left=''
 	if ! (stop_slot); then
 		if [ -z "${force_release-}" ]; then
@@ -873,7 +907,7 @@ cmd_break() {
 	on-time) refuse_break "the lock is not overdue; refusing to break it. Wait, or ask the owner (see check:)." ;;
 	unknown) refuse_break "the lock has no readable expected_end, so it can't be shown to be overdue. Ask a human to inspect it." ;;
 	esac
-	[ -n "$(field slot_env "$claimed")" ] || refuse_break "owner.md has no slot_env, so slot can't tell which .env.isolated the holder used. Ask a human to inspect the lock."
+	[ -n "$(field slot_env "$claimed")" ] || refuse_break "owner.md has no slot_env, so slot can't tell which stack.env the holder used. Ask a human to inspect the lock."
 	holder=$(field owner "$claimed")
 	if [ "$holder" = human ] && [ -z "$force" ]; then
 		refuse_break "a human holds the lock. Ask them; only rerun with --force if they agree."
@@ -892,6 +926,14 @@ for arg in "$@"; do
 		;;
 	esac
 done
+case $command in
+acquire | status | extend | stop | release | break)
+	for var in VALIDATION_SLOT_ENV VALIDATION_LOCK_DIR VALIDATION_LOCK_LOG; do
+		eval "value=\${$var-}"
+		[ -n "$value" ] || usage_error "$var is not set. Set all three for the stack you use: VALIDATION_SLOT_ENV=\$HOME/isolated-t0/<name>/stack.env VALIDATION_LOCK_DIR=\$HOME/isolated-t0/<name>/lock VALIDATION_LOCK_LOG=\$HOME/isolated-t0/<name>/lock.log"
+	done
+	;;
+esac
 case $command in
 acquire | extend | stop | release | break)
 	"cmd_$command" "$@"
