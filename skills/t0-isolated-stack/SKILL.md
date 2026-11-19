@@ -111,7 +111,7 @@ Every `make` target takes the stack: `make test ISOLATED_ENV="$ENV"`, `make seed
 - **App:** use the frontend's `verify-android` skill, following its "Isolated stack" section: `export ANDROID_SERIAL=emulator-$ISOLATED_EMULATOR_PORT`, and drive with the Maestro CLI, always with `--device "$ANDROID_SERIAL"` and `-e METRO_PORT=$ISOLATED_METRO_PORT`. The Maestro MCP drives only the default emulator.
 - **Admin:** browsers share cookies across ports, so give each stack its own browser context or profile.
 - **Data:** the personas are seeded with the default password; create fresh accounts for anything that mutates data. The engine API is real on a stack: the app's block generation calls it, and Agent Coach runs call the model and cost a little.
-- **Flake:** a Maestro run can fail with `device offline` right after an emulator boots. Rerun it once.
+- **Lost device:** a Maestro run can fail with `device offline` or `device 'emulator-…' not found` when adb drops and reconnects the emulator (it happens most to the lowest-numbered emulator, which is the first device when `emulator-5554` isn't running). A reconnect also drops the port forwards, so the app then fails every network call (`We couldn't build your plan`, sign-in errors) without saying why. Run `make emulator ISOLATED_ENV="$ENV"` in the frontend worktree, which restores the forwards (`adb -s "$ANDROID_SERIAL" reverse --list` shows three), then rerun.
 
 If you need more time, run `"$SLOT" extend +30m` before `expected_end` passes.
 
@@ -125,7 +125,7 @@ Save evidence in your verification evidence directory, in your worktree of the r
 
 ## 8. Release
 
-Press Ctrl+C in the frontend's terminal, then the backend's. Then run `"$SLOT" release --id <lock id>`, which removes the stack's containers (Supabase and the queue; volumes kept until the next reset), kills its listeners including its emulator, and frees the lock. Release even when validation failed or you're giving up.
+Press Ctrl+C in the frontend's terminal, then the backend's. If you started a target in the background of a non-interactive shell (`make ... &`), it ignores SIGINT; send `kill -TERM -- -<pgid>` to its process group instead. Then run `"$SLOT" release --id <lock id>`, which removes the stack's containers (Supabase and the queue; volumes kept until the next reset), kills its listeners including its emulator, and frees the lock. Release even when validation failed or you're giving up.
 
 If release fails, it keeps the lock. Fix what it reports and run it again. If you can't fix it, run `"$SLOT" release --id <lock id> --force`, which frees the lock and logs what was left running, and report what it listed.
 
