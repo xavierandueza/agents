@@ -61,7 +61,7 @@ Keep the spec faithful to the agreed scope. Material design changes go back to t
 
 Run the verify skill in the repository, or if one doesn't exist the generic [`verify`](../verify/SKILL.md) skill to verify the results and correct any observed issues.
 
-ACs that need running services go through an isolated stack (the `isolated-stack` skill). Lock the stack after the task commits are pushed, and hold it only while you exercise ACs. Before acquiring, check the machine has spare memory for another stack; if it doesn't, wait for a held stack to be released and use that one. A missing environment is something to ask for, not a reason to skip: ask your fleet lead, or the user, for a stack. Mark `NOT VERIFIED` only when an isolated stack itself can't exercise the AC, and say why.
+ACs that need running services go through an isolated stack (the repo's isolated-stack skill: `isolated-stack` in the local project(s) or the global one that matches the repos). Lock the stack after the task commits are pushed, and hold it only while you exercise ACs. Before acquiring, check the machine has spare memory for another stack; if it doesn't, wait for a held stack to be released and use that one. A missing environment is something to ask for, not a reason to skip: ask your fleet lead, or the user, for a stack. Mark `NOT VERIFIED` only when an isolated stack itself can't exercise the AC, and say why.
 
 **Complete when:** every AC is `VERIFIED` or `FAILED`, or `NOT VERIFIED` for a reason an isolated stack can't overcome.
 
