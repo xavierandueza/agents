@@ -18,7 +18,7 @@ Launch independent ready tickets in parallel. Dependent tickets wait until their
 
 List machines with `herdr machine list`. Each one runs its own Herdr server, so every command for a remote machine takes `--machine <label>`, and pane IDs and agent names are per machine. Check free memory and CPU on each machine, keep about a quarter of RAM free, and don't count on swap.
 
-Each machine has a pool of isolated stacks per project (the repo's isolated-stack skill: `isolated-stack` for readme, `t0-isolated-stack` for t0), each with its own lock. Each skill states how much memory a running stack needs; free memory, not the number of stacks, limits how many agents can validate at once; the rest wait for a held stack to be released. Spread tickets whose ACs need running services across machines. Tickets that only need unit-level checks go wherever there's capacity.
+Each machine has a pool of isolated stacks per project (the repo's isolated-stack skill: `isolated-stack` for readme, `t0-isolated-stack` in the t0 repos), each with its own lock. Each skill states how much memory a running stack needs; free memory, not the number of stacks, limits how many agents can validate at once; the rest wait for a held stack to be released. Spread tickets whose ACs need running services across machines. Tickets that only need unit-level checks go wherever there's capacity.
 
 Before launching, on every machine you'll use:
 - At least one stack is set up for each project you'll validate, as that project's isolated-stack skill's setup step describes (readme: `~/isolated/<name>/.env.isolated`; t0: `~/isolated-t0/<name>/stack.env`). If none is, tell the user and point them at that step.
