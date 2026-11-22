@@ -18,7 +18,7 @@ Prove the change works the way a user would meet it: the running web app, or the
   ```
 - Secrets live only in `private/`. Pass them by file or variable so they stay out of `vNN/` and your messages.
 - Status is exactly one of `VERIFIED`, `FAILED`, `NOT VERIFIED`. Only something you observed is `VERIFIED`. A `FAILED` AC is a finding: record it and carry on.
-- When an AC needs running services (servers, workers, databases), run them in an isolated stack (the repo's isolated-stack skill: `isolated-stack` for readme, `t0-isolated-stack` in the t0 repos)
+- When an AC needs running services (servers, workers, databases), run them in an isolated stack (the repo's isolated-stack skill: `isolated-stack` in the local project(s) or the global one that matches the repos)
 - If the environment can't exercise an AC (missing tool, external webhook, or an isolated stack genuinely can't reproduce it), record it `NOT VERIFIED` with that reason. Workarounds produce evidence nobody can trust.
 - Clean up what you created (sessions, panes, scratch dirs, test accounts), even after a failure. Touch nothing else.
 
